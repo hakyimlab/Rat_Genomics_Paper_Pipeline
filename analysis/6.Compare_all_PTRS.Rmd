@@ -1,0 +1,147 @@
+---
+title: "6.Compare_all_PTRS"
+author: "Natasha Santhanam"
+date: "2/7/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(data.table)
+library(readxl)
+library(qqman)
+library(arrow)
+library(RSQLite)
+library(glmnet)
+library(GenomicRanges)
+library(liftOver)
+"%&%" = function(a,b) paste(a,b,sep="")
+dir <- "/Users/natashasanthanam/Github/rat-genomic-analysis/data/"
+devtools::source_gist("ee5f67abddd0b761ee24410ea71c41aa")
+```
+
+## Sumary PTRS performance vs Individual PTRS in Rats
+
+# Calculate Predicted Height in Rats using Lassosum PTRS weights
+```{r file dir, eval=FALSE, include=FALSE}
+data.dir <- "/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/"
+orth.rats <- read_tsv(data.dir %&% "expression/ortholog_genes_rats_humans.tsv", col_names = TRUE)
+```
+
+ Match genes in weights file in humans to Rat expression 
+```{r read in weights and expression, eval=FALSE, include=FALSE}
+weights <- read_tsv(data.dir %&% "PTRS_weights/weight_files/spxcan2ptrs_original_scale.Standing_height.Whole_Blood.weights.tsv")
+weights <- read_tsv(data.dir %&% "PTRS_weights/weight_files/pxcan2ptrs_clump.Standing_height.Whole_Blood.weights.tsv")
+
+weights$gene_name <- sapply(strsplit(weights$gene_name, "\\."), `[`, 1)
+
+# Here we use predicted expression not predicted and make sure to use human ensembl id gene name
+pred_expr <- read_tsv(data.dir %&% "prediXcan/rat_metabolic_Ac__predict.txt") %>% select(-c(FID))
+```
+
+Filter for overlap
+```{r filter expression for no overlap, eval=FALSE, include=FALSE}
+all_rats <- read_tsv(data.dir %&% "MultiXcan/all_names.txt", col_names = TRUE)
+pred_expr <- pred_expr[-na.omit(match(all_rats$ID, pred_expr$IID)), ]
+```
+
+Filter for Genes with Human Ortholog
+```{r change gene name, eval=FALSE, include=FALSE}
+#filter only for genes that have a human ortholog
+pred_expr <- pred_expr %>% select(c(IID, intersect(colnames(pred_expr), orth.rats$rnorvegicus_homolog_ensembl_gene) ))
+
+#change name to human ensembl id in humans
+colnames(pred_expr)[2:ncol(pred_expr)] <- orth.rats[match(colnames(pred_expr)[2:ncol(pred_expr)], orth.rats$rnorvegicus_homolog_ensembl_gene), 1] %>% .[["ensembl_gene_id"]]
+```
+
+
+Generate predicted values for Height using all models 
+```{r generate predicted trait, eval=FALSE, include=FALSE}
+pred_height <- fn_generate_trait(pred_expr, weights)
+```
+
+
+Compare Both Clump and Original Scale weights to Observed Height in Rats
+```{r read in predicted height and filter pheno, eval=FALSE}
+clump_height <- readRDS(data.dir %&% "PTRS_weights/predicted_height_WB_spxcan2ptrs_clump.RDS")
+orig_height <- readRDS(data.dir %&% "PTRS_weights/predicted_height_WB_spxcan2ptrs_original_scale.RDS")
+
+weights <- weights %>% select(-c(gene_name))
+n_genes_clump <- as.matrix(apply(weights, 2, function(x) sum(x != 0 )))
+
+weights <- read_tsv(data.dir %&% "PTRS_weights/weight_files/spxcan2ptrs_original_scale.Standing_height.Whole_Blood.weights.tsv")
+weights <- weights %>% select(-c(gene_name))
+n_genes_orig <- as.matrix(apply(weights, 2, function(x) sum(x != 0 )))
+
+
+pheno <- read_csv(data.dir %&% "Box_files/processed_obesity_rat_Palmer_phenotypes.csv") %>% dplyr::select(c(rat_rfid, bmi_bodylength_w_tail, bmi_bodylength_wo_tail, bodylength_w_tail, bodylength_wo_tail, tail_length)) 
+pheno <- pheno %>% filter(!(rat_rfid  %in% all_rats$ID))
+```
+
+Create Dataframes with the correlation coefficient between trait in rats and ones predicted using PTRS from Humans
+```{r cor btw bodylength with tail  and predicted height, include=FALSE}
+bodylength_w_tail <- pheno %>% dplyr::select(c(rat_rfid, bodylength_w_tail)) %>% na.omit()
+tempo_clump <- clump_height[na.omit(match(bodylength_w_tail$rat_rfid, rownames(clump_height))), ]
+tempo_orig <-  orig_height[na.omit(match(bodylength_w_tail$rat_rfid, rownames(orig_height))), ]
+
+bodylength_w_tail_orig <- data.frame(estimate = numeric(), pvalue = numeric(), model = character(), n.genes = numeric(), conf.int.min = numeric(), conf.int.max = numeric())
+bodylength_w_tail_clump <- data.frame(estimate = numeric(), pvalue = numeric(), model = character(), n.genes = numeric() , conf.int.min = numeric(), conf.int.max = numeric())
+
+for(i in 1:ncol(tempo_orig)){
+  bodylength_w_tail_orig[i,1] <- cor.test(bodylength_w_tail$bodylength_w_tail, tempo_orig[,i])$estimate
+  bodylength_w_tail_orig[i,2] <- cor.test(bodylength_w_tail$bodylength_w_tail, tempo_orig[,i])$p.value
+  bodylength_w_tail_orig[i,3] <- paste("model", i, sep = "_")
+  bodylength_w_tail_orig[i,4] <- n_genes_orig[i]
+  bodylength_w_tail_orig[i,5] <- cor.test(bodylength_w_tail$bodylength_w_tail, tempo_orig[,i])$conf.int[1]
+  bodylength_w_tail_orig[i,6] <- cor.test(bodylength_w_tail$bodylength_w_tail, tempo_orig[,i])$conf.int[2]
+}
+
+for(i in 1:ncol(tempo_clump)) {
+ bodylength_w_tail_clump[i,1] <- cor.test(bodylength_w_tail$bodylength_w_tail, tempo_clump[,i])$estimate
+  bodylength_w_tail_clump[i,2] <- cor.test(bodylength_w_tail$bodylength_w_tail, tempo_clump[,i])$p.value
+  bodylength_w_tail_clump[i,3] <- paste("model", i, sep = "_")
+  bodylength_w_tail_clump[i,4] <- n_genes_clump[i]
+  bodylength_w_tail_clump[i,5] <- cor.test(bodylength_w_tail$bodylength_w_tail, tempo_clump[,i])$conf.int[1]
+  bodylength_w_tail_clump[i,6] <- cor.test(bodylength_w_tail$bodylength_w_tail, tempo_clump[,i])$conf.int[2]
+}
+```
+
+
+# Naive PTRS for Rats
+Already have weight files for Naive PTRS from Framingham Whole blood models - so just need to multiply by predicted expression in rats
+
+```{r generate pred height with naive SPTRS, eval=FALSE}
+filelist <- list.files(out.dir %&% "naive_PTRS/", pattern = ".tsv", full.names = TRUE)
+
+for(fila in filelist) {
+weights <- read_tsv(fila)
+weights$gene = sapply(strsplit(weights$gene, "\\."), `[`, 1)
+naive_pred_height <- fn_generate_trait(pred_expr, weights)
+saveRDS(naive_pred_height, data.dir %&% "PTRS_weights/naive_PTRS/naive_PTRS_new_pred_height_" %&% substr(fila, 113, str_length(fila)-4) %&% ".RDS")
+}
+```
+
+Calculate Correlation with Observed Height
+```{r corrleation for naive PTRS, eval=FALSE}
+filelist <- list.files(data.dir %&% "PTRS_weights/naive_PTRS/", full.names = TRUE)
+naive_pred_height <- data.frame(ID = as.character())
+
+for(fila in filelist) {
+  df <- as.data.frame(readRDS(fila)) %>% mutate(ID = rownames(df)) 
+  colnames(df)[1] <- substr(fila, 100, str_length(fila)- 4)
+  naive_pred_height <- full_join(naive_pred_height, df, by = "ID")
+}
+
+tempo <- naive_pred_height[na.omit(match(bodylength_w_tail$rat_rfid, naive_pred_height$ID)), ]
+
+naive_height <- data.frame(estimate = numeric(), pvalue = numeric(), conf.int.min = numeric(), conf.int.max = numeric(), model = character() )
+tempo <- tempo %>% select(-c(ID))
+
+for(i in 1:ncol(tempo)) {
+  naive_height[i,1] <- cor.test(bodylength_w_tail$bodylength_w_tail, tempo[,i])$estimate
+  naive_height[i,2] <- cor.test(bodylength_w_tail$bodylength_w_tail, tempo[,i])$p.value
+  naive_height[i,3] <- cor.test(bodylength_w_tail$bodylength_w_tail, tempo[,i])$conf.int[1]
+  naive_height[i,4] <- cor.test(bodylength_w_tail$bodylength_w_tail, tempo[,i])$conf.int[2]
+  naive_height[i,5] <- colnames(tempo)[i]
+}
+```

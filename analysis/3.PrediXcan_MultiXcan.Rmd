@@ -1,6 +1,6 @@
 ---
 title: "3.PrediXcan_MultiXcan"
-author: "Tyson Miller"
+author: "Natasha Santhanam"
 date: "2/7/2022"
 output: html_document
 ---

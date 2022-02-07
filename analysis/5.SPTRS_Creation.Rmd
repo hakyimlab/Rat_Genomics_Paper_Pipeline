@@ -1,0 +1,255 @@
+---
+title: "SPTRS_Creation"
+author: "Natasha Santhanam"
+date: "2/7/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(data.table)
+library(readxl)
+library(qqman)
+library(arrow)
+library(RSQLite)
+library(glmnet)
+library(GenomicRanges)
+library(liftOver)
+"%&%" = function(a,b) paste(a,b,sep="")
+dir <- "/Users/natashasanthanam/Github/rat-genomic-analysis/data/"
+```
+
+## Script to run Lassosum PTRS (Summary Statistics PTRS) on GTEx data for Height 
+
+Set up the conda environment
+```{bash create conda env, eval=FALSE}
+conda env create -f environment.yml
+
+# to activate: conda activate SPrediXcan2PTRS
+```
+
+# Calculate Genotype Covariances using GTEx genotypes and 
+
+We'll use Whole Blood as the prediction model since the individual PTRS weights were also trained in Whole Blood
+
+To calculate genotype covariances you need the genotype as a vcf format, prediction model and sample list. 
+
+```{bash script to calculate genotype covariances, eval=FALSE}
+#PBS -S /bin/bash
+#PBS -l walltime=24:00:00
+#PBS -l nodes=1:ppn=1
+#PBS -l mem=32gb
+#PBS -e /gpfs/data/im-lab/nas40t2/natasha/rat_genomics/PTRS_weights/logs/gtex_v8_en_geno_cov/$TISSUE.${PBS_JOBID}.err
+#PBS -o /gpfs/data/im-lab/nas40t2/natasha/rat_genomics/PTRS_weights/logs/gtex_v8_en_geno_cov/$TISSUE.${PBS_JOBID}.log
+
+
+source ~/.bash_profile
+source ~/.bashrc
+
+conda activate SPrediXcan2PTRS
+
+# load extra python dependency
+export PYTHONPATH=/gpfs/data/im-lab/nas40t2/yanyul/GitHub/SPrediXcan2PTRS
+export PYTHONPATH=/gpfs/data/im-lab/nas40t2/yanyul/GitHub/transethnic_prs
+
+# script path 
+gen_script=/gpfs/data/im-lab/nas40t2/yanyul/GitHub/SPrediXcan2PTRS/generate_gtex_v8_geno_cov.py
+
+# input data
+genotype=/gpfs/data/gtex-group/v8/59348/gtex/exchange/GTEx_phs000424/exchange/analysis_releases/GTEx_Analysis_2017-06-05_v8/genotypes/WGS/variant_calls/GTEx_Analysis_2017-06-05_v8_WholeGenomeSeq_838Indiv_Analysis_Freeze.SHAPEIT2_phased.vcf.gz
+predictdb=/gpfs/data/im-lab/nas40t2/Data/PredictDB/GTEx_v8/models_v1/eqtl/ctimp/ctimp_$TISSUE.db
+eursample=/gpfs/data/im-lab/nas40t2/Data/GTEx/V8/eur_samples.txt
+
+# output
+outdir=/scratch/nsanthanam1/Lassosum_PTRS/geno_cov
+prefix=ctimp_$TISSUE.geno_cov
+
+cd /gpfs/data/im-lab/nas40t2/natasha/rat_genomics/PTRS_weights/logs/
+
+python $gen_script \
+  --genotype_vcf $genotype \
+  --predictdb $predictdb \
+  --mode evd 0 \
+  --sample_list $eursample \
+  --output_prefix $outdir/$prefix > \
+  gtex_v8_en_geno_cov/$TISSUE.${PBS_JOBID}.log 2>&1
+```
+
+Submit the script and define tissue
+```{bash calculate genotype covariances, eval=FALSE}
+tissue=Whole_Blood
+qsub -v TISSUE=$tissue geno_cov_PTRS.pbs 
+```
+
+
+# Calculate Summary PTRS weights
+
+This is a large submission script but there are two main parts: 1. Run S-PrediXcan 2. Calculate Lassosum PTRS. The inputs here are the number of people in the GWAS (GWASN), Tissue and GWAS Tag. This script takes the gwas (UKB Standing Height), prediction model (ctimpt Whole Blood) same as before and genotype covariances calculated above and generates a meta results file and a h5 file with the weights for each gene per model. 
+
+
+```{bash submission for Lassosum PTRS, eval=FALSE}
+#PBS -S /bin/bash
+#PBS -l walltime=24:00:00
+#PBS -l nodes=1:ppn=1
+#PBS -l mem=32gb
+#PBS -e /gpfs/data/im-lab/nas40t2/natasha/rat_genomics/PTRS_weights/logs/run_Muscle_Skeletal.${PBS_JOBID}.err
+#PBS -o /gpfs/data/im-lab/nas40t2/natasha/rat_genomics/PTRS_weights/logs/run_Muscle_Skeletal.${PBS_JOBID}.log
+
+# ARGS:
+# TISSUE
+# GWASTAG
+# GWASN
+
+if [[ -z $TISSUE ]]
+then
+  TISSUE=$1
+  GWASTAG=$2
+  GWASN=$3
+  PBS_O_WORKDIR=/gpfs/data/im-lab/nas40t2/natasha/SPrediXcan2PTRS
+fi
+
+source ~/.bash_profile
+source ~/.bashrc
+
+predict_db=/gpfs/data/im-lab/nas40t2/Data/PredictDB/GTEx_v8/models_v1/eqtl/ctimp/ctimp_${TISSUE}.db
+predict_db_cov=/gpfs/data/im-lab/nas40t2/Data/PredictDB/GTEx_v8/models_v1/eqtl/ctimp/ctimp_${TISSUE}.txt.gz
+gwas=/gpfs/data/im-lab/nas40t2/Data/SummaryResults/imputed_gwas_hg38_1.1/imputed_UKB_50_${GWASTAG}.txt.gz
+outdir=/scratch/nsanthanam1/Lassosum_PTRS/geno_cov/run_gtex_gwas_eur
+
+export PYTHONPATH=/gpfs/data/im-lab/nas40t2/yanyul/GitHub/SPrediXcan2PTRS
+export PYTHONPATH=/gpfs/data/im-lab/nas40t2/yanyul/GitHub/transethnic_prs
+
+conda activate /gpfs/data/im-lab/nas40t2/bin/envs/imlabtools/
+
+
+# impute beta and se from z
+imputeb_gwas=$outdir/imputed_bhat.${GWASTAG}.txt.gz
+if [[ ! -f $imputeb_gwas ]]
+then
+  echo "Imputing effect size of GWAS"
+  echo "Input: $gwas"
+  echo "Output: $imputeb_gwas"
+  python /gpfs/data/im-lab/nas40t2/natasha/SPrediXcan2PTRS/misc_scripts/run_gtex_gwas/impute_b_for_gwas.py \
+    --input $gwas \
+    --zscore zscore \
+    --freq frequency \
+    --sample_size sample_size \
+    --output $imputeb_gwas
+fi
+
+
+# run s-predixcan
+spxcanscript=/gpfs/data/im-lab/nas40t2/yanyul/GitHub/MetaXcan/software/SPrediXcan.py
+pxcan_file=$outdir/spredixcan.${GWASTAG}.${TISSUE}.csv
+if [[ ! -f $pxcan_file ]]
+then
+  echo "Running S-PrediXcan"
+  echo "Input: $imputeb_gwas"
+  echo "Output: $pxcan_file"
+  python $spxcanscript \
+    --gwas_file $imputeb_gwas \
+    --snp_column variant_id \
+    --effect_allele_column effect_allele \
+    --non_effect_allele_column non_effect_allele \
+    --beta_column effect_size \
+    --se_column standard_error \
+    --model_db_path $predict_db \
+    --covariance $predict_db_cov \
+    --additional_output \
+    --throw \
+    --output_file $pxcan_file
+fi
+
+# run SPrediXcan2PTRS
+conda activate SPrediXcan2PTRS
+
+runscript=/gpfs/data/im-lab/nas40t2/natasha/SPrediXcan2PTRS/run_pxcan2ptrs.py
+
+geno_cov_file=/scratch/nsanthanam1/Lassosum_PTRS/geno_cov/ctimp_$TISSUE.geno_cov.chr{chr_num}.evd.npz
+
+ptrs_prefix=$outdir/spxcan2ptrs_original_scale.${GWASTAG}.${TISSUE}
+ptrs_file=$ptrs_prefix.results.h5
+
+if [[ ! -f $ptrs_file ]]
+then
+  echo "Running SPrediXcan2PTRS"
+  echo "Input: $pxcan_file"
+  echo "Output: $ptrs_file"
+  python $runscript \
+    --predixcan $pxcan_file \
+    --predictdb $predict_db \
+    --geno_cov $geno_cov_file \
+    --gwas $gwas \
+    --gwas_cols chromosome=chromosome \
+      position=position \
+      effect_allele=effect_allele \
+      non_effect_allele=non_effect_allele \
+    --gwas_sample_size $GWASN \
+    --output_prefix $ptrs_prefix \
+    --original_scale
+fi
+
+
+ptrs_prefix=$outdir/spxcan2ptrs_clump_original_scale.${GWASTAG}.${TISSUE}
+ptrs_file=$ptrs_prefix.results.h5
+
+if [[ ! -f $ptrs_file ]]
+then
+  echo "Running SPrediXcan2PTRS"
+  echo "Input: $pxcan_file"
+  echo "Output: $ptrs_file"
+  python $runscript \
+    --predixcan $pxcan_file \
+    --predictdb $predict_db \
+    --geno_cov $geno_cov_file \
+    --gwas $gwas \
+    --gwas_cols chromosome=chromosome \
+      position=position \
+      effect_allele=effect_allele \
+      non_effect_allele=non_effect_allele \
+    --gwas_sample_size $GWASN \
+    --output_prefix $ptrs_prefix \
+    --original_scale \
+    --clump
+fi
+```
+
+Submit the script with all the inputs
+```{bash run script, eval=FALSE}
+gwastag=Standing_height
+tissue=Whole_Blood
+nsample=336474
+qsub -v TISSUE=$tissue,GWASTAG=$gwastag,GWASN=$nsample -N $nsample run_LassoSum_PTRS.pbs  
+```
+
+Save the Results as a txt file so it's easier to work with in R
+```{python convert to txt format, eval=FALSE}
+import h5py
+import numpy as np
+
+f = h5py.File('/scratch/nsanthanam1/Lassosum_PTRS/geno_cov/run_gtex_gwas_eur/spxcan2ptrs_clump_original_scale.Standing_height.Whole_Blood.results.h5', 'r')   
+#f = h5py.File('/scratch/nsanthanam1/Lassosum_PTRS/geno_cov/run_gtex_gwas_eur/spxcan2ptrs_original_scale.Standing_height.Whole_Blood.results.h5', 'r')
+
+f.keys()
+f['dataset_0'].keys()
+
+weights = f['dataset_0']['betahat'][...]
+n1 = np.array(f["genes"][:])
+
+np.savetxt('/scratch/nsanthanam1/Lassosum_PTRS/geno_cov/run_gtex_gwas_eur/spxcan2ptrs.clump.Standing_height.Whole_Blood.results.tsv', weights, delimiter='\t')
+#np.savetxt('/scratch/nsanthanam1/Lassosum_PTRS/geno_cov/run_gtex_gwas_eur/spxcan2ptrs.lassosum.Standing_height.Whole_Blood.results.tsv', weights, delimiter='\t')
+
+np.savetxt('/scratch/nsanthanam1/Lassosum_PTRS/geno_cov/run_gtex_gwas_eur/spxcan2ptrs.clump.Standing_height.Whole_Blood.genes.tsv', n1, fmt='%s')
+#np.savetxt('/scratch/nsanthanam1/Lassosum_PTRS/geno_cov/run_gtex_gwas_eur/spxcan2ptrs.lassosum.Standing_height.Whole_Blood.genes.tsv', n1, fmt='%s')
+```
+
+Add gene name to weights file
+```{r add gene ids to weights, eval=FALSE}
+weights <- read_tsv("/scratch/nsanthanam1/Lassosum_PTRS/geno_cov/run_gtex_gwas_eur/spxcan2ptrs.clump.Standing_height.Whole_Blood.results.tsv", col_names = FALSE)
+
+gene_ids <- read_tsv("/scratch/nsanthanam1/Lassosum_PTRS/geno_cov/run_gtex_gwas_eur/spxcan2ptrs.clump.Standing_height.Whole_Blood.genes.tsv", col_names = FALSE)
+gene_ids$X1 <- substr(gene_ids$X1, 3, str_length(gene_ids$X1) -1 )
+
+weights <- weights %>% mutate(gene_name = gene_ids$X1, .before = colnames(weights)[1])
+```
+
