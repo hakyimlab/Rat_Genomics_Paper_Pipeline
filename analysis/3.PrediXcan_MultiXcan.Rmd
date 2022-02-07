@@ -1,0 +1,163 @@
+---
+title: "3.PrediXcan_MultiXcan"
+author: "Tyson Miller"
+date: "2/7/2022"
+output: html_document
+---
+
+```{r setup, eval=FALSE}
+library(tidyverse)
+library(devtools)
+library(broom)
+library(data.table)
+library(RSQLite)
+library(data.table)
+library(qqman)
+"%&%" = function(a,b) paste(a,b,sep="")
+geno.dir <- "/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/Box_files/rat_genotypes_LD_pruned_0.95/"
+```
+
+## Run PrediXcan with Metabolic Phenotype Data
+
+# Create model with right column names for PrediXcan (do for all 5 tissues)
+```{r create txt genotypes, eval=FALSE}
+filelist <- list.files(geno.dir, pattern = ".bimbam")
+#ids for rats are in the phenotype file under rat_rfid
+
+for(fila in filelist) {
+  tempo <- fread(geno.dir %&% fila)
+  tempo <- tempo %>% mutate(chr =  numextract(sapply(strsplit(tempo$V1, ":"), `[`, 1)), .before = V1) %>% mutate(pos = numextract(sapply(strsplit(tempo$V1, ":"), `[`, 2)), .before = V2) %>% mutate(maf = 0, .before = V4)
+  write_tsv(tempo, geno.dir %&% substr(fila, 1, nchar(fila) - 7) %&% ".txt", col_names = FALSE)
+}
+```
+
+
+```{r change colnames of Ac prediction model, eval=FALSE}
+filename <- MODEL %&% "Ac_output_db.db"
+  sqlite.driver <- dbDriver("SQLite")
+  conn <- dbConnect(RSQLite::SQLite(), filename)
+  extra <- dbGetQuery(conn, 'select * from extra')
+  weights <- dbGetQuery(conn, 'select * from weights')
+extra <- extra %>% select(c(gene, genename, n.snps, R2, pval)) %>% mutate(pred.perf.qval = NA) 
+colnames(extra) <- c("gene", "genename", "n.snps.in.model", "pred.perf.R2", "pred.perf.pval", "pred.perf.qval")
+```
+
+
+```{r create database connection, eval=FALSE}
+model_db = MODEL %&% "Ac_annot_prediXcan_db.db"
+conn <- dbConnect(RSQLite::SQLite(), model_db)
+dbWriteTable(conn, "weights", weights)
+dbWriteTable(conn, "extra", extra)
+
+#check to see model is set up 
+dbListTables(conn)
+dbGetQuery(conn, 'SELECT * FROM weights') %>% head
+dbGetQuery(conn, 'SELECT * FROM extra') %>% head
+dbDisconnect(conn)
+```
+
+# Do for all 5 tissues 
+```{bash run prediXcan, eval = FALSE}
+#run prediXcan
+conda activate /gpfs/data/im-lab/nas40t2/bin/envs/tensorqtl/ 
+export METAXCAN=/gpfs/data/im-lab/nas40t2/natasha/GTEX_Analysis/MetaXcan/software
+export GENO=/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/Box_files/rat_genotypes_LD_pruned_0.95
+export MODEL=/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/models
+
+python $METAXCAN/Predict.py \
+--model_db_path $MODEL/Ac_annot_prediXcan_db.db \
+--text_genotypes  \
+ $GENO/chr*.round2_impute2_3473.txt  \
+--on_the_fly_mapping METADATA "{}_{}_{}_{}" \
+--text_sample_ids $GENO/samples_Rat_metab_phenos_file \
+--prediction_output rat_metabolic_Ac__predict.txt  \
+--prediction_summary_output rat_metabolic_Ac__summary.txt \
+--throw
+```
+
+```{r run associations, eval=FALSE}
+#run asssociation in prediXcan
+ PHENO = "/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/Box_files/"
+ RESULTS = "/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/prediXcan/"
+ 
+ 
+pheno <- read_csv(PHENO %&% "processed_obesity_rat_Palmer_phenotypes.csv", col_names = TRUE)
+
+for(i in 1:length(colnames(pheno))){
+trait <- colnames(pheno)[i]
+runLOC <- "python3 " %&% METAXCAN %&% "PrediXcanAssociation.py " %&% "--expression_file " %&% RESULTS %&% "rat_metabolic_Ac__predict.txt --input_phenos_file " %&% PHENO %&% "processed_obesity_rat_Palmer_cols_phenotypes.txt " %&% "--input_phenos_column " %&% i %&%  " --output " %&% RESULTS %&% "associations/rat_Palmer__association_" %&% trait %&% "_.txt --verbosity 9 --throw"
+system(runLOC)
+}
+```
+
+
+## Run MultiXcan
+
+# Generate Folder with Predicted Expression Data for each Tissue
+
+First have to remove potential overlap between genotypes used in predicted expression and those in phenotype file. Should only be around 60ish so not too big a deal
+
+```{r generate list of ids across all tissues, eval=FALSE}
+filelist <- list.files("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/expression", pattern = ".RDS", full.names = TRUE)
+all_names <- data.frame(ID = as.character())
+for(fila in filelist) {
+  tempo <- readRDS(fila)
+  tempo <- as.data.frame(rownames(tempo)) %>% rename(ID = `rownames(tempo)`)
+  all_names <- full_join(tempo, all_names, by = "ID")
+}
+```
+
+
+```{r clean up pheno file, eval=FALSE}
+pheno <- read_csv("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/Box_files/processed_obesity_rat_Palmer_phenotypes.csv", col_names=TRUE)
+
+pheno <- pheno %>% rename(ID = rat_rfid) %>% filter(!ID %in% all_names$ID)
+```
+
+
+Next have to remove overlap rats predicted expression as well
+```{r  generate expr data, eval=FALSE}
+filelist <- list.files("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/prediXcan", pattern = "__predict.txt", full.names = TRUE)
+
+for(fila in filelist) {
+  tempo <- fread(fila, header=TRUE)
+  name <- substr(fila, 72,73)
+  tempo <- tempo %>% filter(!FID %in% all_names$ID)
+  tempo <- tempo[match(pheno$ID, tempo$FID),]
+  write_tsv(tempo, "/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/MultiXcan/expr/" %&% name %&% ".txt")
+}
+```
+
+
+Run MultiXcan using the predicted expression from prediXcan across all 5 tissues to boost power
+```{bash run MultiXcan}
+#!/bin/bash
+
+#PBS -N multixcan
+#PBS -S /bin/bash
+#PBS -l walltime=4:00:00
+#PBS -l mem=4gb
+#PBS -l nodes=1:ppn=1
+
+# SPECIFY LOGGING BEHAVIOR
+
+#PBS -o /gpfs/data/im-lab/nas40t2/natasha/rat_genomics/MultiXcan/logs/${PBS_JOBNAME}.${PBS_JOBID}.log
+#PBS -e /gpfs/data/im-lab/nas40t2/natasha/rat_genomics/MultiXcan/logs/${PBS_JOBNAME}.${PBS_JOBID}.err
+
+module load gcc/6.2.0
+source ~/.bashrc 
+conda activate /gpfs/data/im-lab/nas40t2/bin/envs/tensorqtl/
+
+echo "MultiXcan running on epifat"
+
+python /gpfs/data/im-lab/nas40t2/natasha/GTEX_Analysis/MetaXcan/software/MulTiXcan.py \
+        --expression_folder /gpfs/data/im-lab/nas40t2/natasha/rat_genomics/MultiXcan/expr \
+        --expression_pattern "(.*)_expression_transformed.txt" \
+        --input_phenos_file /gpfs/data/im-lab/nas40t2/natasha/rat_genomics/MultiXcan/metabolic_trait_phenos_MultiXcan.txt \
+        --input_phenos_column fasting_glucose \
+        --output /gpfs/data/im-lab/nas40t2/natasha/rat_genomics/MultiXcan/results/fasting_glucose_predict_assoc.txt \
+        --pc_condition_number 10 \
+        --mode linear \
+        --verbosity 8 \
+        --throw
+```
