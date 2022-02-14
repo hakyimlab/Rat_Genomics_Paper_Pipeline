@@ -113,9 +113,9 @@ annotate_figure(fig, left = text_grob("Observed Expression", rot = 90), bottom =
 
 # Correlation of predicted R2 between tissues in GTEx
 
-We use Nucleus Accumbens, Hippocampus, Cerebellum, Frontal Cortex and Anterior Cingulate Cortex in GTEx
+We use Nucleus Accumbens, Hippocampus, Cerebellum, Cortex and Anterior Cingulate Cortex in GTEx
 ```{r compile all R2 for tissues}
-filelist <- list( "en_Brain_Nucleus_accumbens_basal_ganglia.db", "en_Brain_Hippocampus.db", "en_Brain_Cerebellum.db", "Brain_Frontal_Cortex_BA9.v8.normalized_expression.bed.gz ", "en_Brain_Anterior_cingulate_cortex_BA24.db")
+filelist <- list( "en_Brain_Nucleus_accumbens_basal_ganglia.db", "en_Brain_Hippocampus.db", "en_Brain_Cerebellum.db", "en_Brain_Cortex.db", "en_Brain_Anterior_cingulate_cortex_BA24.db")
 dir <- "/gpfs/data/im-lab/nas40t2/Data/PredictDB/GTEx_v8/models_v1/eqtl/elastic_net_models/"
 
 pred_tis <- data.frame(gene = as.character())
@@ -123,13 +123,20 @@ for(fila in filelist) {
   filename <- dir %&% fila
   sqlite.driver <- dbDriver("SQLite")
   conn <- dbConnect(RSQLite::SQLite(), filename)
+  tis <- substr(fila, 4, str_length(fila)-3)
   extra <- dbGetQuery(conn, 'select * from extra') %>% select(c(gene, test_R2_avg)) 
+  colnames(extra)[2] = tis
   pred_tis <- full_join(pred_tis, extra, by = "gene") 
   dbDisconnect(conn)
 }
 
-colnames(predict_NA) <- c("gene","Nucleus_accumbens" ,"Hippocampus", "Cerebellum", "Amygdala", "Anterior_cingulate_cortex", )
-rownames(predict_NA) <- predict_NA$gene
-predict_NA <- predict_NA %>% select(-c(gene))
-saveRDS(predict_NA, "/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/comp_to_GTEx/pred_R2_betw_GTEx_brain_tissues.RDS")
+rownames(pred_tis) <- pred_tis$gene
+pred_tis <- pred_tis %>% select(-c(gene))
+saveRDS(pred_tis, "/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/comp_to_GTEx/pred_R2_betw_GTEx_brain_tissues.RDS")
 ```
+
+```{r make pairs plot}
+pred_tis <- readRDS("/Users/natashasanthanam/Downloads/pred_R2_betw_GTEx_brain_tissues.RDS")
+pairs(pred_tis)
+```
+
