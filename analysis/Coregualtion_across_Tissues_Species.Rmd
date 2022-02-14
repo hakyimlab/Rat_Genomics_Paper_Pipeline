@@ -1,0 +1,242 @@
+---
+title: "Coregulation_across_Tissues_Species"
+author: "Natasha Santhanam"
+date: "2/14/2022"
+output: html_document
+---
+
+````{r}
+library(tidyverse)
+library(devtools)
+library(broom)
+library(data.table)
+library(RSQLite)
+library(Hmisc)
+"%&%" = function(a,b) paste(a,b,sep="")
+dir <- "/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/"
+set.seed(777)
+```
+
+1. Correlation between genes within each tissue and then
+calculate correlation of the correlation between genes across tissues
+
+```{r}
+filelist <- list.files("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/prediXcan", pattern = "predict.txt", full.names = TRUE)
+orth.rats <- read_tsv(dir %&% "expression/ortholog_genes_rats_humans.tsv", col_names = TRUE)
+```
+
+Generate Correlation Matrices for 100 rats - compare predicted Expression across tissues
+```{r}
+names <- read_tsv(filelist[1]) %>% select(c(FID))
+
+for(i in 1:100) {
+  id = sample(names$FID, size = 1)
+  tempo <- data.frame(gene = as.character())
+  for(fila in filelist) {
+    name <- substr(fila, 58,59)
+    tis <- fread(fila) %>% filter(FID == id) %>% pivot_longer(!c(FID, IID), names_to = "gene", values_to = name) %>% select(-c(FID, IID))
+    tempo <- full_join(tempo, tis,  by = "gene")
+  } 
+  tempo <- tempo %>% mutate(var = apply(tempo[,-1], 1, var)) %>% na.omit()
+  saveRDS(tempo, dir %&% "prediXcan/GREx_comp/" %&% id %&% ".GREx.mat.RDS")
+}
+```
+
+
+Check heatmap of some individuals
+```{r}
+i1 <- readRDS("/Users/natashasanthanam/Downloads/00077E6712.cor.mat.RDS")
+i2 <- readRDS("/Users/natashasanthanam/Downloads/00077E7788.cor.mat.RDS")
+
+melted_i1 <- melt(i1, na.rm = TRUE)
+melted_i2 <- melt(i2, na.rm = TRUE)
+
+p1= ggplot(data = melted_i1, aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile() + theme(
+  axis.title.x = element_blank(),
+  axis.title.y = element_blank(),) + ggtitle("00077E6712")
+p2= ggplot(data = melted_i2, aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile() + theme(
+  axis.title.x = element_blank(),
+  axis.title.y = element_blank(),) + ggtitle("00077E7788")
+
+ggarrange(p1, p2, ncol=2)
+```
+
+2.  Co-regulation Shared Across Species
+
+```{r}
+gene_ids <- data.frame(id = fread(filelist[1]) %>% select(-c(FID, IID)) %>%  colnames())
+for(fila in filelist[2:length(filelist)]) {
+  df <- data.frame(id = fread(fila) %>% select(-c(FID, IID)) %>%  colnames())
+  gene_ids <- inner_join(gene_ids, df, by = "id")
+}
+```
+
+
+```{r}
+gtf <- fread(dir %&% "Box_files/gtf.txt", header = TRUE)
+gtf <-  gtf[match(tempo$id, gtf$Gene),]
+ 
+for(i in 1:20) {
+  tempo <- gtf %>% filter(Chr == i) %>% select(c(Gene))
+  if(nrow(tempo) == 0 ) {
+  i = i+1  
+  }
+  else {
+  df <- data.frame(row = as.character(), column = as.character())
+  for(fila in filelist) {
+    tis <- substr(fila, 58,59)
+    expr <- as.data.frame(fread(fila) %>% select(-c(FID, IID)))
+    expr <- expr[,intersect(tempo$Gene, colnames(expr))]
+    res2<-rcorr(as.matrix(expr[,]))
+  d2 <- flattenCorrMatrix(res2$r, res2$P)
+    colnames(d2)[3] = tis
+    colnames(d2)[4] = paste("p", tis, sep = "_")
+    df <- full_join(df, d2, by = c("row", "column"))
+  }
+  saveRDS(df, dir %&% "prediXcan/GREx_comp/cor_genes_per_chr/chr" %&% i %&% ".RDS" )
+  }
+}
+```
+
+
+Save correlation of coregulation across tissues
+```{r}
+coreg.dir <- "/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/prediXcan/GREx_comp/cor_genes_per_chr"
+filelist <- list.files(coreg.dir, pattern = ".RDS", full.names = TRUE)
+
+for(fila in filelist) {
+  tempo <- readRDS(fila) %>% select(c(row, column, Ac, Il, Pl, Lh, Vo)) %>%
+  i <- substr(fila, 89, str_length(fila)- 4)
+  cor.mat <-  cor(tempo[,3:7])
+  saveRDS(cor.mat, dir %&% "prediXcan/GREx_comp/cor_genes_per_chr/cor_coreg_chr" %&% i %&% ".RDS")
+}
+```
+
+
+Graph of Correlation of Coregulation across tissues
+
+```{r}
+data.dir <- "/Users/natashasanthanam/CRI/"
+filelist <- list.files(data.dir, pattern="cor_coreg", full.names = TRUE)
+corr_coreg <- list()
+
+for(fila in filelist) {
+  i <- match(fila, filelist)
+  corr_coreg[[i]] <- readRDS(fila)
+}
+```
+
+Generate Coregulation in Humans (GTEx)
+
+First generate predicted expression in Framingham using GTEx models
+```{bash}
+conda activate imlabtools
+export METAXCAN=/gpfs/data/im-lab/nas40t2/natasha/GTEX_Analysis/MetaXcan/software
+export GENO=/gpfs/data/im-lab/nas40t2/Data/dbGaP/Transcriptome/Framingham/imputed_hrc1.1
+export MODEL=/gpfs/data/im-lab/nas40t2/Data/PredictDB/GTEx_v8/models_v1/eqtl/ctimp
+export RESULTS=/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/PTRS_weights/PGP
+export DATA=/gpfs/data/im-lab/nas40t2/natasha/GTEX_Analysis/predixcan
+
+printf "Predict expression\n\n"
+
+python3 $METAXCAN/Predict.py \
+--model_db_path $MODEL/ctimp_$TISSUE.db \
+--model_db_snp_key varID \
+--vcf_genotypes $GENO/chr*.dose.vcf.gz  \
+--vcf_mode genotyped \
+--liftover $DATA/hg19ToHg38.over.chain.gz  \
+--on_the_fly_mapping METADATA "chr{}_{}_{}_{}_b38" \
+--prediction_output $RESULTS/Framingham__$TISSUE.predict.txt \
+--prediction_summary_output $RESULTS/Framingham__$TISSUE.summary.txt \
+--verbosity 9 \
+--throw
+
+TISSUE=Brain_Cerebellum
+```
+
+
+```{r flatten corr mat function, eval=FALSE}
+flattenCorrMatrix <- function(cormat, pmat) {
+  ut <- upper.tri(cormat)
+  data.frame(
+    row = rownames(cormat)[row(cormat)[ut]],
+    column = rownames(cormat)[col(cormat)[ut]],
+    cor  =(cormat)[ut],
+    p = pmat[ut]
+    )
+}
+```
+
+
+Calculate Coregulation between genes in GTEx
+```{r}
+gtf <- fread("/gpfs/data/im-lab/nas40t2/natasha/GTEX_Analysis/annotations_gencode_v26.tsv", header = TRUE)
+
+ for(i in 1:20) {
+  tempo <- gtf %>% filter(chromosome == paste("chr", i, sep="")) %>% select(c(gene_id))
+  expr <- as.data.frame( fread("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/prediXcan/GREx_comp/Framingham_less_mem__Brain_Cerebellum.predict.txt")) %>% select(-c(FID, IID)) 
+ colnames(expr) = sapply(strsplit(colnames(expr), "\\."), `[`, 1)
+    expr <- expr[, intersect(tempo$gene_id, colnames(expr))]
+   res2<-rcorr(as.matrix(expr[,]))
+  d2 <- flattenCorrMatrix(res2$r, res2$P)
+saveRDS(d2, dir %&% "prediXcan/GREx_comp/cor_GTEx_genes_per_chr/GTEx_chr" %&% i %&% ".RDS" )
+ }
+
+```
+
+```{r}
+filelist <- list.files("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/prediXcan/GREx_comp/cor_GTEx_genes_per_chr/", pattern = ".RDS", full.names = TRUE)
+human_genes <- data.frame()
+
+for(fila in filelist) {
+  tempo <- readRDS(fila)
+  human_genes <- rbind(tempo, human_genes)
+}
+
+summary(human_genes$GTEx)
+#Mean is 0.00266
+
+filelist <- list.files("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/prediXcan/GREx_comp/cor_genes_per_chr", "chr", full.names = TRUE)[1:20]
+rat_genes <- data.frame()
+for(fila in filelist) {
+  tempo <- readRDS(fila)
+  rat_genes <- rbind(tempo, rat_genes)
+}
+```
+
+
+Check if Coregualtion is preserved across species
+```{r}
+orth.rats <- read_tsv("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/expression/ortholog_genes_rats_humans.tsv")
+all_genes <- data.frame()
+for(i in 1:20) {
+  rat.mat <- readRDS(dir %&% "prediXcan/GREx_comp/cor_genes_per_chr/chr" %&% i %&% ".RDS")
+  human.mat <- readRDS(dir %&% "prediXcan/GREx_comp/cor_GTEx_genes_per_chr/GTEx_chr" %&% i %&% ".RDS")
+  
+  rat.mat <- rat.mat %>% filter(row %in% orth.rats$rnorvegicus_homolog_ensembl_gene & column %in% orth.rats$rnorvegicus_homolog_ensembl_gene) 
+  rat.mat$row = orth.rats[match(rat.mat$row, orth.rats$rnorvegicus_homolog_ensembl_gene),1]$ensembl_gene_id
+  rat.mat$column = orth.rats[match(rat.mat$column, orth.rats$rnorvegicus_homolog_ensembl_gene),1]$ensembl_gene_id
+  
+  human.mat <- human.mat %>% filter(row %in% rat.mat$row | row %in% rat.mat$column)
+  if(nrow(human.mat) != 0) {
+    rat.mat <- rat.mat %>% filter(row %in% human.mat$row | row %in% human.mat$column)
+    human.mat <- full_join(human.mat, rat.mat, by = c("row", "column"))
+    all_genes <- rbind(human.mat, all_genes)
+
+  }
+}
+all_genes <- readRDS("/Users/natashasanthanam/Downloads/coregu_across_species_larger.RDS")
+```
+
+
+Plot Coregulation across species
+```{r}
+all_genes <- all_genes %>% dplyr::select(-c(row, column))
+pairs(all_genes)
+cor.test(all_genes$GTEx, all_genes$Ac)
+
+ggplot(all_genes, aes(Vo, GTEx)) + geom_point() + ylim(0, 1)
+ggplot(all_genes, aes(Vo, Ac)) + geom_point() + ylim(0, 1)
+```
