@@ -1,0 +1,294 @@
+---
+title: "GTEx_comparison_rat_n_genes"
+author: "Natasha Santhanam"
+date: "2/14/2022"
+output: html_document
+---
+
+
+```{r}
+library(tidyverse)
+library(devtools)
+library(broom)
+library(data.table)
+library(RSQLite)
+"%&%" = function(a,b) paste(a,b,sep="")
+dir <- "/gpfs/data/im-lab/nas40t2/Data/GTEx/V8/GTEx_Analysis_v8_eQTL_expression_matrices/"
+geno.dir <- "/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/comp_to_GTEx/"
+```
+
+## Compare number of genes predicted between Rat and GTEx prediction models 
+
+# Generate GTEx prediction models using the same pipeline as in Rats
+
+Gather Genotype, Gene epression data, snp annotation file and gtf (made with ensembl notation)
+
+First convert genotypes to single coded format to be read by pipeline
+```{bash convert genos to bimbam fromat, eval=FALSE}
+plink --bfile /gpfs/data/im-lab/nas40t2/Data/GTEx/V8/genotype/plink_files/GTEx_maf_0.01 --geno 0.02 --mind 0.02 --maf 0.05 --make-bed --out GTEx_comp
+```
+
+```{bash creates PED format with people as rows, eval=FALSE}
+plink --bfile GTEx_comp --recode A-transpose --out GTEx_single_code
+```
+
+
+```{r read in genotypes and expression data, eval=FALSE}
+geno <- fread(geno.dir %&% "genos/GTEx_single_code.traw")
+gex <- read_tsv(dir %&% TISSUE %&% ".v8.normalized_expression.bed.gz") %>% select(-c(`#chr`, start, end))
+```
+
+Genotype has to have SNP in first column 
+```{r format genotype, eval=FALSE}
+geno <- geno %>% select(c(SNP, CHR, colnames(geno)[4:ncol(geno)]))
+```
+
+
+transposing gene expression files and inverse normalize
+```{r format expression, eval=FALSE}
+gex <- gex %>% pivot_longer(!gene_id, names_to = "IID", values_to = "count") %>% pivot_wider(names_from = gene_id, values_from = count)
+
+invnorm = function(x) {
+  if(is.null(dim(x))) res = invnorm.vector(x) else
+  res=apply(x,2,invnorm.vector)
+  res
+}
+invnorm.vector = function(x) {yy = rank(x)/(length(x)+1); qnorm(yy)}
+gex_transpose <- gex %>% select(-c(IID))
+
+gex_transpose = invnorm(gex_transpose)
+rownames(gex_transpose) = gex$IID
+```
+
+
+
+Format gene annotation
+```{r format gene annotation, eval=FALSE}
+gtf <- fread("/gpfs/data/im-lab/nas40t2/natasha/GTEX_Analysis/annotations_gencode_v26.tsv")
+
+gene_annotation <- gtf %>% select(c(chromosome, gene_id, gene_name, start, end))
+rownames(gene_annotation) = gtf$gene_id
+```
+
+Format snp annotation
+```{r format snp annotation, eval=FALSE}
+phyMap <- read_tsv(geno.dir %&% "GTEx_comp.bim", col_names = FALSE)  %>% mutate(varID = X2) %>% select(c(X2, X1, X4, X5, X6, varID))
+
+phyMap$rsid = phyMap$varID
+colnames(phyMap) = c("snp", "chr", "pos", "refAllele", "effectAllele", "varID", "rsid")  
+
+rownames(phyMap) = phyMap$varID
+```
+
+```{r split snp annotation by chr, eval=FALSE}
+# Splitting the snp annotation file by chromosome
+s <- setNames(split(phyMap, phyMap$chr), paste0("snp_annot.chr", unique(phyMap$chr)))
+list2env(s, globalenv())
+```
+
+
+```{bash split genotype by chr, eval=FALSE}
+#Splitting the genotype file by chromosome - run this from the rat_genomic_alaysis directory
+python /gpfs/data/im-lab/nas40t2/natasha/rat_genomics/rat-genomic-analysis/scripts/split_genotype_by_chr.py GTEx_genotype.txt  /gpfs/data/im-lab/nas40t2/natasha/rat_genomics/comp_to_GTEx/genos/geno_by_chr/'genotype'
+
+```
+
+```{bash run PEER factor, eval=FALSE}
+# Now we are performing PEER factor analysis on each tissue choosing 7 factors
+/gpfs/data/im-lab/nas40t2/yanyul/softwares/peer/bin/peertool -f Uterus_inv_norm_expression.csv -n 7 -o peer_GTEx --has_header
+```
+
+Read in Peer Factors
+```{r read in peer, eval=FALSE}
+peer_factors= read.csv(file = geno.dir %&% "peer_GTEx/X.csv", header = FALSE)
+```
+
+```{r format PEER, eval=FALSE}
+# Manipulating the PEER factor files so we can append to covariate file
+rownames(peer_factors) = gex$IID
+colnames(peer_factors) = c('PF1', 'PF2', 'PF3', 'PF4', 'PF5', 'PF6', 'PF7')
+```
+
+```{r set up expression matrices, eval=FALSE}
+#initializing matrices to be filled with t-stats, p_vals, and residuals of the regression of each gene vs. the covariates for each tissue. t-stat and p-val matrices are just for diagnostics
+# t_stats = matrix(nrow = 13, ncol = length(colnames(gex)))
+# p_vals = matrix(nrow = 13, ncol = length(colnames(gex)))
+expression = gex_transpose
+```
+
+```{r regress out covariates, eval=FALSE}
+# Regressing out the covariates and saving the residuals as the new expression for each tissue
+for (i in 1:length(colnames(gex_transpose))) {
+    fit = lm(gex_transpose[,i] ~  peer_factors$PF1 + peer_factors$PF2 + peer_factors$PF3 + peer_factors$PF4 + peer_factors$PF5 + peer_factors$PF6 + peer_factors$PF7)
+    expression[,i] <- fit$residuals
+}
+```
+
+```{r save expression, eval=FALSE}
+# Saving the expression RDS objects to be used as arguments in the script
+saveRDS(as.matrix(expression), geno.dir %&% TISSUE %&% "_expression_transformed.RDS")
+```
+
+Find intersection of genes across all GTEx tissues and Rats
+```{r find common genes, eval=FALSE}
+filelist = list.files(geno.dir, pattern = "expression_transformed.RDS", full.names = TRUE)
+names <- data.frame(gene = readRDS(filelist[1]) %>% colnames())
+
+for(fila in filelist[2:length(filelist)]) {
+  tempo <- data.frame(gene = readRDS(fila) %>% colnames())
+  names <- inner_join(names, tempo, by = "gene")
+}
+names$gene = sapply(strsplit(names$gene, "\\."), `[`, 1)
+
+#do the same for all 5 rat tissues 
+filelist = list.files("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/expression/", pattern = "expression_transformed.RDS", full.names = TRUE)
+rat_names <- data.frame(gene = readRDS(filelist[1]) %>% colnames())
+
+for(fila in filelist[2:length(filelist)]) {
+  tempo <- data.frame(gene = readRDS(fila) %>% colnames())
+  rat_names <- inner_join(rat_names, tempo, by = "gene")
+}
+
+#change gene id in rats to human notation
+orth.rats <- read_tsv("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/expression/ortholog_genes_rats_humans.tsv")
+rat_names <- rat_names %>% mutate(human_gene = orth.rats[match(rat_names$gene, orth.rats$rnorvegicus_homolog_ensembl_gene), 1]$ensembl_gene_id)
+
+overlap = data.frame(human_gene = intersect(rat_names$human_gene, names$gene)) #12,230 overlap 
+overlap <- overlap %>% mutate(rat_gene = orth.rats[match(overlap$human_gene, orth.rats$ensembl_gene_id), 3]$rnorvegicus_homolog_ensembl_gene)
+```
+
+Filter for only overlapped genes in expression files
+```{r filter for common genes, eval=FALSE}
+filelist = list.files(geno.dir, pattern = "expression_transformed.RDS", full.names = TRUE)
+for(fila in filelist) {
+  tempo <- readRDS(fila)
+  colnames(tempo) = sapply(strsplit(colnames(tempo), "\\."), `[`, 1)
+  tempo <- tempo[, overlap$human_gene]
+  tis = substr(fila, 73, str_length(fila) - 27)
+  saveRDS(tempo, geno.dir %&% tis %&% "_expression_abrv.RDS")
+}
+```
+
+
+```{r set snp annotation as rownames, eval=FALSE}
+#set snp annotation rownames 
+rownames(snp_annot.chr1) = snp_annot.chr1$varID
+rownames(snp_annot.chr2) = snp_annot.chr2$varID
+rownames(snp_annot.chr3) = snp_annot.chr3$varID
+rownames(snp_annot.chr4) = snp_annot.chr4$varID
+rownames(snp_annot.chr5) = snp_annot.chr5$varID
+rownames(snp_annot.chr6) = snp_annot.chr6$varID
+rownames(snp_annot.chr7) = snp_annot.chr7$varID
+rownames(snp_annot.chr8) = snp_annot.chr8$varID
+rownames(snp_annot.chr9) = snp_annot.chr9$varID
+rownames(snp_annot.chr10) = snp_annot.chr10$varID
+rownames(snp_annot.chr11) = snp_annot.chr11$varID
+rownames(snp_annot.chr12) = snp_annot.chr12$varID
+rownames(snp_annot.chr13) = snp_annot.chr13$varID
+rownames(snp_annot.chr14) = snp_annot.chr14$varID
+rownames(snp_annot.chr15) = snp_annot.chr15$varID
+rownames(snp_annot.chr16) = snp_annot.chr16$varID
+rownames(snp_annot.chr17) = snp_annot.chr17$varID
+rownames(snp_annot.chr18) = snp_annot.chr18$varID
+rownames(snp_annot.chr19) = snp_annot.chr19$varID
+rownames(snp_annot.chr20) = snp_annot.chr20$varID
+```
+
+
+```{r save SNP annot, eval=FALSE}
+# Saving the SNP annotation RDS objects to be used as arguments in the script - too lazy to write a for loop 
+saveRDS(snp_annot.chr1, geno.dir %&% "snp_annot/snp_annot.chr1.RDS")
+saveRDS(snp_annot.chr2, geno.dir %&% "snp_annot/snp_annot.chr2.RDS")
+saveRDS(snp_annot.chr3, geno.dir %&% "snp_annot/snp_annot.chr3.RDS")
+saveRDS(snp_annot.chr4, geno.dir %&% "snp_annot/snp_annot.chr4.RDS")
+saveRDS(snp_annot.chr5, geno.dir %&% "snp_annot/snp_annot.chr5.RDS")
+saveRDS(snp_annot.chr6, geno.dir %&% "snp_annot/snp_annot.chr6.RDS")
+saveRDS(snp_annot.chr7, geno.dir %&% "snp_annot/snp_annot.chr7.RDS")
+saveRDS(snp_annot.chr8, geno.dir %&% "snp_annot/snp_annot.chr8.RDS")
+saveRDS(snp_annot.chr9, geno.dir %&% "snp_annot/snp_annot.chr9.RDS")
+saveRDS(snp_annot.chr10, geno.dir %&% "snp_annot/snp_annot.chr10.RDS")
+saveRDS(snp_annot.chr11, geno.dir %&% "snp_annot/snp_annot.chr11.RDS")
+saveRDS(snp_annot.chr12, geno.dir %&% "snp_annot/snp_annot.chr12.RDS")
+saveRDS(snp_annot.chr13, geno.dir %&% "snp_annot/snp_annot.chr13.RDS")
+saveRDS(snp_annot.chr14, geno.dir %&% "snp_annot/snp_annot.chr14.RDS")
+saveRDS(snp_annot.chr15, geno.dir %&% "snp_annot/snp_annot.chr15.RDS")
+saveRDS(snp_annot.chr16, geno.dir %&% "snp_annot/snp_annot.chr16.RDS")
+saveRDS(snp_annot.chr17, geno.dir %&% "snp_annot/snp_annot.chr17.RDS")
+saveRDS(snp_annot.chr18, geno.dir %&% "snp_annot/snp_annot.chr18.RDS")
+saveRDS(snp_annot.chr19, geno.dir %&% "snp_annot/snp_annot.chr19.RDS")
+saveRDS(snp_annot.chr20, geno.dir %&% "snp_annot/snp_annot.chr20.RDS")
+```
+
+
+```{bash create meta file for each tissue, eval=FALSE}
+# Creating the meta data file for each tissue 
+python /gpfs/data/im-lab/nas40t2/natasha/rat_genomics/rat-genomic-analysis/scripts/create_meta_data.py --geno "genos/GTEx_genotype.txt" --expr "Ovary_expression_transformed.RDS" --snpset "1KG" --rsid_label 1 --window 1000000 --out_prefix "Results/allMetaData/GTEx_ovary" 
+```
+
+```{bash run model script, eval=FALSE}
+# Running the model training script for each tissue/chromosome pair
+Rscript /gpfs/data/im-lab/nas40t2/natasha/rat_genomics/rat-genomic-analysis/scripts/create_model.R $TISSUE $chr .5 1000000
+
+
+for i in {1..20}
+do
+qsub -v TISSUE=$tissue,chr=$i GTEx_single_nested_EN.pbs  
+done
+```
+
+
+```{bash concatenate all results, eval=FALSE}
+# Concatenating all of the results files for each tissue
+bash /gpfs/data/im-lab/nas40t2/natasha/rat_genomics/rat-genomic-analysis/scripts/make_all_results.sh  'Kidney_Cortex' './Results/all_Results_Ovary' 0.5 '1KG_snps'
+
+bash /gpfs/data/im-lab/nas40t2/natasha/rat_genomics/rat-genomic-analysis/scripts/make_all_betas.sh 'Kidney_Cortex' './Results/all_betas_Kidney_Cortex' 0.5 '1KG_snps'
+```
+
+# Compare number of genes predicted in GTEx to those in Rats
+
+Create Number of Genes for all GTEx tissues
+```{r create GTEx n genes matrix, eval=FALSE}
+gtex_dir <- "/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/comp_to_GTEx/Results/"
+filelist <- list.files(gtex_dir, pattern = "all_Results", full.names = TRUE)
+GWAS_n_genes <- data.frame(tis= as.character(), n.genes = numeric(), species = as.character())
+
+for(fila in filelist) {
+  i = match(fila, filelist)
+  tempo <- read_tsv(fila, col_names = TRUE)
+  tempo <- tempo %>% filter(R2 >= 0)
+  GWAS_n_genes[i,2] <- n_distinct(tempo$gene) 
+  GWAS_n_genes[i,1] <- substr(fila, 82, str_length(fila) )
+  GWAS_n_genes[i,3] <- "Human"
+}
+
+GWAS_n_genes <- GWAS_n_genes %>% mutate(n.samples = c(114, 73, 167, 129)) 
+```
+
+Create Number of Genes for Rat Tissues
+```{r create rat tissue matrix, eval=FALSE}
+rat.dir <- "/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/Tyson_Results/"
+filelist <- list.files(rat.dir, pattern = "all_results", full.names=TRUE)
+rat_n_genes <- data.frame(tis= as.character(), n.genes = numeric(), species = as.character())
+
+for(fila in filelist) {
+  i = match(fila, filelist)
+  tempo <- read_tsv(fila, col_names = TRUE)
+  tempo <- tempo %>% filter(R2 >= 0)
+  rat_n_genes[i,2] <- n_distinct(tempo$gene) 
+  rat_n_genes[i,1] <- substr(fila, 75, 76)
+  rat_n_genes[i,3] <- "Rat"
+}
+
+rat_n_genes <- rat_n_genes %>% mutate(n.samples = c(78, 83, 83, 81, 82)) 
+total_genes <- rbind(GWAS_n_genes, rat_n_genes)
+```
+
+Create Plot Comparing Tissues
+```{r}
+total_genes <- read_tsv("/Users/natashasanthanam/Github/rat-genomic-analysis/data/n_genes_comparison_GTEx_subset_genes.txt", col_names = TRUE)
+  
+ggplot(total_genes, aes(n.samples, n.genes)) + geom_point() +geom_smooth(data=subset(total_genes,species=="Human"),
+aes(n.samples, n.genes), method=lm) + geom_label_repel( label = total_genes$tis, box.padding   = 0.35, point.padding = 0.5) +  xlab("Number of Individuals") + ylab("Number of Genes Predicted")  + theme(legend.position = "None") + theme_bw()
+
+ggsave("/Users/natashasanthanam/Downloads/GTEx_rats_n_genes.pdf")
+```
