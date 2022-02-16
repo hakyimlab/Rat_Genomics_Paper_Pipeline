@@ -65,7 +65,7 @@ ggarrange(p1, p2, ncol=2)
 
 2.  Co-regulation Shared Across Species
 
-```{r}
+```{r find gene ids in all rat tissues, eval=FALSE}
 gene_ids <- data.frame(id = fread(filelist[1]) %>% select(-c(FID, IID)) %>%  colnames())
 for(fila in filelist[2:length(filelist)]) {
   df <- data.frame(id = fread(fila) %>% select(-c(FID, IID)) %>%  colnames())
@@ -74,7 +74,7 @@ for(fila in filelist[2:length(filelist)]) {
 ```
 
 
-```{r}
+```{r find cor of pred expression matrix for all rat tissues, eval=FALSE}
 gtf <- fread(dir %&% "Box_files/gtf.txt", header = TRUE)
 gtf <-  gtf[match(tempo$id, gtf$Gene),]
  
@@ -184,59 +184,59 @@ gtf <- fread("/gpfs/data/im-lab/nas40t2/natasha/GTEX_Analysis/annotations_gencod
 saveRDS(d2, dir %&% "prediXcan/GREx_comp/cor_GTEx_genes_per_chr/GTEx_chr" %&% i %&% ".RDS" )
  }
 
+#Can also calculate correlation between genes in GTEx for all genes
+expr <- as.data.frame( fread("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/prediXcan/GREx_comp/Framingham_less_mem__Brain_Cerebellum.predict.txt")) %>% select(-c(FID, IID)) 
+ colnames(expr) = sapply(strsplit(colnames(expr), "\\."), `[`, 1)
+ res2<-rcorr(as.matrix(expr[,]))
+  d2 <- flattenCorrMatrix(res2$r, res2$P)
 ```
 
-```{r}
-filelist <- list.files("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/prediXcan/GREx_comp/cor_GTEx_genes_per_chr/", pattern = ".RDS", full.names = TRUE)
-human_genes <- data.frame()
-
-for(fila in filelist) {
-  tempo <- readRDS(fila)
-  human_genes <- rbind(tempo, human_genes)
-}
-
-summary(human_genes$GTEx)
-#Mean is 0.00266
-
-filelist <- list.files("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/prediXcan/GREx_comp/cor_genes_per_chr", "chr", full.names = TRUE)[1:20]
-rat_genes <- data.frame()
-for(fila in filelist) {
-  tempo <- readRDS(fila)
-  rat_genes <- rbind(tempo, rat_genes)
-}
-```
 
 
 Check if Coregualtion is preserved across species
-```{r}
-orth.rats <- read_tsv("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/expression/ortholog_genes_rats_humans.tsv")
-all_genes <- data.frame()
-for(i in 1:20) {
-  rat.mat <- readRDS(dir %&% "prediXcan/GREx_comp/cor_genes_per_chr/chr" %&% i %&% ".RDS")
-  human.mat <- readRDS(dir %&% "prediXcan/GREx_comp/cor_GTEx_genes_per_chr/GTEx_chr" %&% i %&% ".RDS")
+
+```{r, include=FALSE, eval=FALSE}
+human.mat <- readRDS(dir %&% "prediXcan/GREx_comp/cor_GTEx_genes_per_chr/cor_pred_expr_GTEx_all_genes.RDS") %>% select(-c(p)) %>% rename(GTEx = cor)
+
+for(i in 6:20) {
+  rat.mat <- readRDS("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/prediXcan/GREx_comp/cor_genes_per_chr/chr" %&% i %&% ".RDS") %>% select(-c(p_Ac, p_Il, p_Lh, p_Vo, p_Pl))
   
   rat.mat <- rat.mat %>% filter(row %in% orth.rats$rnorvegicus_homolog_ensembl_gene & column %in% orth.rats$rnorvegicus_homolog_ensembl_gene) 
   rat.mat$row = orth.rats[match(rat.mat$row, orth.rats$rnorvegicus_homolog_ensembl_gene),1]$ensembl_gene_id
   rat.mat$column = orth.rats[match(rat.mat$column, orth.rats$rnorvegicus_homolog_ensembl_gene),1]$ensembl_gene_id
   
-  human.mat <- human.mat %>% filter(row %in% rat.mat$row | row %in% rat.mat$column)
-  if(nrow(human.mat) != 0) {
-    rat.mat <- rat.mat %>% filter(row %in% human.mat$row | row %in% human.mat$column)
-    human.mat <- full_join(human.mat, rat.mat, by = c("row", "column"))
-    all_genes <- rbind(human.mat, all_genes)
-
-  }
+  all_genes <- inner_join(rat.mat, human.mat, by = c("row", "column")) %>% select(-c(row, column)) %>% na.omit()
+  saveRDS(all_genes, dir %&% "prediXcan/GREx_comp/coregulation_across_species/all_chr" %&% i %&% ".RDS" )
 }
-all_genes <- readRDS("/Users/natashasanthanam/Downloads/coregu_across_species_larger.RDS")
 ```
 
 
 Plot Coregulation across species
-```{r}
-all_genes <- all_genes %>% dplyr::select(-c(row, column))
-pairs(all_genes)
-cor.test(all_genes$GTEx, all_genes$Ac)
+```{r plot coregulation across species, eval=FALSE}
+p.dir <- "/Users/natashasanthanam/CRI/"
+filelist <- list.files(p.dir, pattern = "all", full.names = TRUE)
 
-ggplot(all_genes, aes(Vo, GTEx)) + geom_point() + ylim(0, 1)
-ggplot(all_genes, aes(Vo, Ac)) + geom_point() + ylim(0, 1)
+for(fila in filelist) {
+  df <- readRDS(fila)
+  pairs(df)
+}
+
 ```
+
+
+Heatmap ordered with TSS
+
+```{r ordered heatmap, eval=FALSE}
+only_GTEx <- readRDS("/Users/natashasanthanam/Downloads/cor_pred_expr_GTEx_all_genes.RDS") %>% select(-c(p)) %>% mutate(start = gtf[match(only_GTEx$row, gtf$gene_id), 5]$start) %>% distinct(row, column, .keep_all = TRUE)
+
+GTEx_ordered <- only_GTEx[sort(only_GTEx$start),]
+
+GTEx_chr2_genes <- only_GTEx[na.omit(match(gtf$gene_id, only_GTEx$row)), ]
+
+p3= ggplot(data = GTEx_ordered, aes(x=row, y=column, fill=cor)) + 
+  geom_tile() + theme(
+  axis.title.x = element_blank(),
+  axis.title.y = element_blank(), axis.text = element_text(size = 2)) + ggtitle("Heatmap for predicted expression in GTEx Cerebellum")
+p3
+```
+
