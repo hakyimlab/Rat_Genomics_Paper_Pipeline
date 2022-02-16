@@ -191,7 +191,7 @@ lg_df <- lg_df %>% dplyr::select(c(ensid, gene.x, genename, R2, en_r2,rat_h2,h2,
 colnames(lg_df) = c("ensembl_id", "rat_ensembl_id", "genename", "rat_r2", "human_r2", "rat_h2", "human_h2", "rat_h2_ci", "human_h2_ci")
 
 # Plot h2 between rats and Humans with line for null 
-lg_df %>% mutate(human_shuffled_h2 = sample(human_h2, nrow(lg_df), replace=F)) %>% ggplot(aes(rat_h2, human_h2)) + geom_smooth() + geom_smooth(aes(rat_h2, human_shuffled_h2),col="dark gray")+theme_bw()+ xlab("Rat Heritability") + ylab("Human Heritability")
+lg_df %>% mutate(human_shuffled_h2 = sample(human_h2, nrow(lg_df), replace=F)) %>% ggplot(aes(rat_h2, human_h2)) + geom_smooth(col = "darkgreen") + geom_smooth(aes(rat_h2, human_shuffled_h2),col="dark gray")+theme_bw()+ xlab("Rat Heritability") + ylab("Human Heritability")
 
 # Plot R2 between rats and Humans with line for null 
 lg_df %>% mutate(human_shuffled_r2 = sample(human_r2, nrow(lg_df), replace=F)) %>% ggplot(aes(rat_r2, human_r2)) + geom_smooth() + geom_smooth(aes(rat_r2, human_shuffled_r2),col="dark gray")+theme_bw()+ xlab("Rat Predictability") + ylab("Human Predictability")
