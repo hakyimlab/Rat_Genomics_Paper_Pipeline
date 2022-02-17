@@ -43,16 +43,12 @@ head(tempo)
 ```
 
 
-
-
-
 ```{r query MultiXcan for top genes associated with Obesity }
 input = list()
 input$pheno = c("Obesity")
 input$limit = 30000
 obesity_genes <-  get_results_from_data_db(input)
 ```
-
 
 
 ```{r query MultiXcan for top genes associated with Body fat percentage }
@@ -138,7 +134,7 @@ pheno_rats <- readRDS(data.dir %&% "data/rat_metabolic_MultiXcan_pval_assocs.RDS
 orth.rats <- orth.rats %>% filter(external_gene_name != "")
 #change rat ensembl id for gene to human orhtologs
 #add column instead of change
-pheno_rats$gene_name <- orth.rats[match(pheno_rats$gene_name, orth.rats$rnorvegicus_homolog_ensembl_gene),2]
+pheno_rats$gene_name <- orth.rats[match(pheno_rats$gene_name, orth.rats$rnorvegicus_homolog_ensembl_gene),2]$external_gene_name
 
 #inner join of the two matrices for humans and rats
 all_genes <- inner_join(pheno_rats, pheno_Multi_humans, by = "gene_name")
@@ -156,18 +152,20 @@ cor.test(all_genes$bmi_bodylength_w_tail, all_genes$BMI, method = "spearman")
 
 
 ```{r plot -log pvalues of multiXcan comparing rats and humans}
-ggplot(all_genes, aes(-log10(bodyweight), -log10(Body_Fat))) + geom_point()  + xlab("Bodyweight in rats") + ylab("Body Fat in Humans") + ggtitle("Compare MultiXcan -log(pvalues) between Rats and Humans") + geom_vline(xintercept = 1.30103) +  geom_hline(yintercept = 1.30103) + geom_label_repel(aes(label=ifelse((bodyweight <= 1e-5 | Body_Fat <= 1e-5), as.character(gene_name),''), box.padding   = 0.35, point.padding = 0.5)) 
+ggplot(all_genes, aes(-log10(bodyweight), -log10(Body_Fat))) + geom_point()  + xlab("Bodyweight in rats") + ylab("Body Fat in Humans")  + geom_vline(xintercept = 1.30103) +  geom_hline(yintercept = 1.30103) + geom_label_repel(aes(label=ifelse((bodyweight <= 1e-5 | Body_Fat <= 1e-5), as.character(gene_name),''), box.padding   = 0.35, point.padding = 0.5)) 
 
-ggplot(all_genes, aes(-log10(epifat), -log10(Body_Fat))) + geom_point()  + xlab("Epifat in rats") + ylab("Body Fat in Humans") + ggtitle("Compare MultiXcan -log(pvalues) between Rats and Humans") + geom_vline(xintercept = 1.30103) +  geom_hline(yintercept = 1.30103) + geom_label_repel(aes(label=ifelse((epifat <= 1e-5 | Body_Fat <= 1e-5), as.character(gene_name),''), box.padding   = 0.35, point.padding = 0.5))
+ggplot(all_genes, aes(-log10(epifat), -log10(Body_Fat))) + geom_point()  + xlab("Epifat in rats") + ylab("Body Fat in Humans")  + geom_vline(xintercept = 1.30103) +  geom_hline(yintercept = 1.30103) + geom_label_repel(aes(label=ifelse((epifat <= 1e-5 | Body_Fat <= 1e-5), as.character(gene_name),''), box.padding   = 0.35, point.padding = 0.5))
 
-ggplot(all_genes, aes(-log10(parafat), -log10(Body_Fat))) + geom_point()  + xlab("Parafat in rats") + ylab("Body Fat in Humans") + ggtitle("Compare MultiXcan -log(pvalues) between Rats and Humans") + geom_vline(xintercept = 1.30103) +  geom_hline(yintercept = 1.30103) + geom_label_repel(aes(label=ifelse((parafat <= 1e-5 | Body_Fat <= 1e-5), as.character(gene_name),''), box.padding   = 0.35, point.padding = 0.5))
+ggplot(all_genes, aes(-log10(parafat), -log10(Body_Fat))) + geom_point()  + xlab("Parafat in rats") + ylab("Body Fat in Humans") + geom_vline(xintercept = 1.30103) +  geom_hline(yintercept = 1.30103) + geom_label_repel(aes(label=ifelse((parafat <= 1e-5 | Body_Fat <= 1e-5), as.character(gene_name),''), box.padding   = 0.35, point.padding = 0.5))
 
 
-ggplot(all_genes, aes(-log10(retrofat), -log10(Body_Fat))) + geom_point()  + xlab("Retrofat in rats") + ylab("Body Fat in Humans") + ggtitle("Compare MultiXcan -log(pvalues) between Rats and Humans") + geom_vline(xintercept = 1.30103) +  geom_hline(yintercept = 1.30103) + geom_label_repel(aes(label=ifelse((retrofat <= 1e-5 | Body_Fat <= 1e-5), as.character(gene_name),''), box.padding   = 0.35, point.padding = 0.5))
+ggplot(all_genes, aes(-log10(retrofat), -log10(Body_Fat))) + geom_point()  + xlab("Retrofat in rats") + ylab("Body Fat in Humans")  + geom_vline(xintercept = 1.30103) +  geom_hline(yintercept = 1.30103) + geom_label_repel(aes(label=ifelse((retrofat <= 1e-5 | Body_Fat <= 1e-5), as.character(gene_name),''), box.padding   = 0.35, point.padding = 0.5))
 
-ggplot(all_genes, aes(-log10(fasting_glucose), -log10(Fasting_Glucose))) + geom_point()  + xlab("Fasting glucose in rats") + ylab("Fasting Glucose  in Humans") + ggtitle("Compare MultiXcan -log(pvalues) between Rats and Humans") + geom_vline(xintercept = 1.30103) +  geom_hline(yintercept = 1.30103) + geom_label_repel(aes(label=ifelse((fasting_glucose <= 1e-5 | Fasting_Glucose <= 1e-5 ), as.character(gene_name),''), box.padding   = 0.35, point.padding = 0.5))
+ggplot(all_genes, aes(-log10(fasting_glucose), -log10(Fasting_Glucose))) + geom_point()  + xlab("Fasting glucose in rats") + ylab("Fasting Glucose  in Humans")  + geom_vline(xintercept = 1.30103) +  geom_hline(yintercept = 1.30103) + geom_label_repel(aes(label=ifelse((fasting_glucose <= 1e-5 | Fasting_Glucose <= 1e-5 ), as.character(gene_name),''), box.padding   = 0.35, point.padding = 0.5))
 
-ggplot(all_genes, aes(-log10(bodylength_w_tail), -log10(Height))) + geom_point()  + xlab("Bodylength with tail in rats") + ylab("Height in Humans") + ggtitle("Compare MultiXcan -log(pvalues) between Rats and Humans") + geom_vline(xintercept = 1.30103) +  geom_hline(yintercept = 1.30103) + geom_label_repel(aes(label=ifelse((bodylength_w_tail <= 1e-5 | Height <= 1e-5 ), as.character(gene_name),''), box.padding   = 0.35, point.padding = 0.5,  max.overlaps = 30))
+ggplot(all_genes, aes(-log10(bodylength_w_tail), -log10(Height))) + geom_point()  + xlab("Bodylength with tail in rats") + ylab("Height in Humans")  + geom_vline(xintercept = 1.30103) +  geom_hline(yintercept = 1.30103) + geom_label_repel(aes(label=ifelse((bodylength_w_tail <= 1e-5 | Height <= 1e-5 ), as.character(gene_name),''), box.padding   = 0.35, point.padding = 0.5,  max.overlaps = 30))
+
+
 ```
 
 

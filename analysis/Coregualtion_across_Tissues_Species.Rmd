@@ -54,11 +54,11 @@ melted_i2 <- melt(i2, na.rm = TRUE)
 p1= ggplot(data = melted_i1, aes(x=Var1, y=Var2, fill=value)) + 
   geom_tile() + theme(
   axis.title.x = element_blank(),
-  axis.title.y = element_blank(),) + ggtitle("00077E6712")
+  axis.title.y = element_blank(),) + ggtitle("00077E6712") + theme(aspect.ratio = 1)
 p2= ggplot(data = melted_i2, aes(x=Var1, y=Var2, fill=value)) + 
   geom_tile() + theme(
   axis.title.x = element_blank(),
-  axis.title.y = element_blank(),) + ggtitle("00077E7788")
+  axis.title.y = element_blank(),) + ggtitle("00077E7788") + theme(aspect.ratio = 1)
 
 ggarrange(p1, p2, ncol=2)
 ```
