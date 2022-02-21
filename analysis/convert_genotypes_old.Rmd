@@ -1,0 +1,52 @@
+---
+title: "convert_genotypes_old"
+author: ""
+date: "2022-02-21"
+output: workflowr::wflow_html
+editor_options:
+  chunk_output_type: console
+---
+
+**Note:** This is old script to convert Palmer lab genotype data in an .Rdata object to plink format. For our analysis, we used a different process to reformat, documented [here](analysis/generate_plink_format_genotypes.Rmd)
+
+Data from [here](https://uchicago.app.box.com/folder/102043737114) - genoGex.Rdata has everything we need in it
+There are 5 'gex' RDS files which are the gene expressions for the 5 different tissues, the 'gtf' is the gene annotation, 'phyMap' is the snp annotation, and 'geno' is the genotype matrix
+
+```{r setup, eval=FALSE}
+library(tidyverse)
+library(data.table)
+library(RSQLite)
+"%&%" = function(a,b) paste(a,b,sep="")
+date = Sys.Date()
+load("~/Box/imlab-data/Projects/PTRS-PGRS-Rosetta/Data-From-Abe-Palmer-Lab/Rdata/genoGex.RData")
+wd =  "/Users/sabrinami/Github/Rat_Genomics_Paper_Pipeline/output/"
+```
+
+We loaded several data tables into memory. `geno` contains genotype data, with columns of rat IDs and each row containing dosage for a single snp. These snps are listed in `phyMap`, with their chromosome, position, reference, and alternative alleles. In this next step, we subset genotype data to the rats with gene expression data for each tissue.
+
+```{r subset genotypes, eval=FALSE}
+geno_Ac = geno[,match(colnames(gexAc), colnames(geno))]
+geno_Il = geno[,match(colnames(gexIl), colnames(geno))]
+geno_Lh = geno[,match(colnames(gexLh), colnames(geno))]
+geno_Pl = geno[,match(colnames(gexPl), colnames(geno))]
+geno_Vo = geno[,match(colnames(gexVo), colnames(geno))]
+```
+
+Adding information from the snp annotation file `phyMap`, we generate a genotype file for each tissue.
+
+```{r generate bimbam files for all tissues, eval=FALSE}
+Ac_bimbam <- cbind(phyMap$chr, phyMap$pos, rownames(geno_Ac), phyMap$refAllele, phyMap$effectAllele, geno_Ac)
+Il_bimbam <- cbind(phyMap$chr, phyMap$pos, rownames(geno_Il),phyMap$refAllele, phyMap$effectAllele,  geno_Il)
+Lh_bimbam <- cbind(phyMap$chr, phyMap$pos, rownames(geno_Lh),phyMap$refAllele, phyMap$effectAllele,  geno_Lh)
+Pl_bimbam <- cbind(phyMap$chr, phyMap$pos, rownames(geno_Pl),phyMap$refAllele, phyMap$effectAllele,  geno_Pl)
+Vo_bimbam <- cbind(phyMap$chr, phyMap$pos, rownames(geno_Vo),phyMap$refAllele, phyMap$effectAllele,  geno_Vo)
+
+```
+
+```{r genotype files, eval=FALSE}
+write.table(Ac_bimbam, file = wd %&% "Ac_bimbam",quote=F,col.names=F,row.names=F)
+write.table(Il_bimbam, file = wd %&% "Il_bimbam",quote=F,col.names=F,row.names=F)
+write.table(Lh_bimbam, file = wd %&% "Lh_bimbam",quote=F,col.names=F,row.names=F)
+write.table(Pl_bimbam, file = wd %&%"Pl_bimbam",quote=F,col.names=F,row.names=F)
+write.table(Vo_bimbam, file = wd %&%"Vo_bimbam",quote=F,col.names=F,row.names=F)
+```
