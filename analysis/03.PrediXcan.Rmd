@@ -161,3 +161,33 @@ python /gpfs/data/im-lab/nas40t2/natasha/GTEX_Analysis/MetaXcan/software/MulTiXc
         --verbosity 8 \
         --throw
 ```
+
+
+# Add Zscore to MutliXcan
+
+Add Zscore to each PrediXcan file 
+
+```{r add ind zscore}
+filelist <- list.files("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/prediXcan/metabolic_traits", pattern = "summary.txt", full.names = TRUE)
+for(fila in filelist) {
+  id <- substr(fila, 89,90)
+  tis <- fread(fila) %>% mutate(zscore = qnorm(pred_perf_pval))
+  fwrite(tis, "/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/prediXcan/metabolic_traits/predixcan_w_zscore/"%&% id %&% ".summary.txt")
+}
+```
+
+
+Calculate mean Zscore across all tisuses
+```{r find mean Z, eval=FALSE}
+filelist <- list.files("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/prediXcan/metabolic_traits/predixcan_w_zscore", pattern = "summary.txt", full.names = TRUE)
+
+tempo <- data.frame(gene = as.character())
+for(fila in filelist) {
+    name <- substr(fila, 89,90)
+    tis <- fread(fila) %>% select(c(gene, zscore))
+    tempo <- full_join(tempo, tis,  by = "gene")
+} 
+
+tempo <- tempo %>% mutate (zscore.mean = rowMeans(tempo[,2:ncol(tempo)], na.rm = TRUE))
+```
+

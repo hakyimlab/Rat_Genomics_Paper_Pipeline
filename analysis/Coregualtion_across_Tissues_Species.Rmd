@@ -21,7 +21,7 @@ set.seed(777)
 calculate correlation of the correlation between genes across tissues
 
 ```{r}
-filelist <- list.files("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/prediXcan", pattern = "predict.txt", full.names = TRUE)
+filelist <- list.files("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/prediXcan/metabolic_traits", pattern = "predict.txt", full.names = TRUE)
 orth.rats <- read_tsv(dir %&% "expression/ortholog_genes_rats_humans.tsv", col_names = TRUE)
 ```
 
@@ -33,12 +33,12 @@ for(i in 1:100) {
   id = sample(names$FID, size = 1)
   tempo <- data.frame(gene = as.character())
   for(fila in filelist) {
-    name <- substr(fila, 58,59)
+    name <- substr(fila, 89,90)
     tis <- fread(fila) %>% filter(FID == id) %>% pivot_longer(!c(FID, IID), names_to = "gene", values_to = name) %>% select(-c(FID, IID))
     tempo <- full_join(tempo, tis,  by = "gene")
   } 
   tempo <- tempo %>% mutate(var = apply(tempo[,-1], 1, var)) %>% na.omit()
-  saveRDS(tempo, dir %&% "prediXcan/GREx_comp/" %&% id %&% ".GREx.mat.RDS")
+  saveRDS(tempo, dir %&% "prediXcan/GREx_comp/cor_tis_per_ind/" %&% id %&% ".GREx.mat.RDS")
 }
 ```
 
