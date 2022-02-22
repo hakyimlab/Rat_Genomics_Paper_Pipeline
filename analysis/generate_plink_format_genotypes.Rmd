@@ -5,15 +5,23 @@ date: "2/14/2022"
 output: html_document
 ---
 
+## Definitions
+
 ```{r}
 library(workflowr)
 library(tidyverse)
 library(glue)
 library(readxl)
+
+wd =  "/Users/sabrinami/Github/Rat_Genomics_Paper_Pipeline/data/"
+"%&%" = function(a,b) paste(a,b,sep="")
 ```
 
+## Generating Raw Genotype files from Tyson's original analysis
 
-Generating Raw Genotype files from Tyson's original analysis
+Data from [here](https://uchicago.app.box.com/folder/102043737114) - genoGex.Rdata has everything we need in it
+There are 5 'gex' RDS files which are the gene expressions for the 5 different tissues, the 'gtf' is the gene annotation, 'phyMap' is the snp annotation, and 'geno' is the genotype matrix
+
 ```{r}
 load("~/Box/imlab-data/Projects/PTRS-PGRS-Rosetta/Data-From-Abe-Palmer-Lab/Rdata/genoGex.RData")
 ```
@@ -61,6 +69,7 @@ gexPl_transpose = invnorm(gexPl_transpose)
 gexVo_transpose = invnorm(gexVo_transpose)
 ```
 
+We first transposed each gene expression file as a matrix with individuals as the columns and genes for the rows. Now we add gene annotations.
 
 ```{r}
 gtf$gene_type = sub(".*?gene_biotype(.*?);.*", "\\1", gtf$Attr)
@@ -77,6 +86,7 @@ phyMap$rsid = phyMap$varID
 colnames(phyMap) = c("snp", "chr", "pos", "refAllele", "effectAllele", 'varID', "rsid")
 ```
 
+Next, we subset genotype files to the rats with gene expression data from respective tissues.
 ```{r}
 rownames(geno) = rownames(phyMap)
 #write.table(geno, file = "./data/genotype.txt", sep = "\t", col.names = TRUE, row.names = TRUE)
@@ -91,21 +101,23 @@ geno_Vo = geno[,match(rownames(gexVo_transpose), colnames(geno))]
 ```
 
 ```{r}
-write.table(geno_Ac, file = "./data/genotype_Ac.txt", sep = "\t", col.names = TRUE, row.names = TRUE)
-write.table(geno_Il, file = "./data/genotype_Il.txt", sep = "\t", col.names = TRUE, row.names = TRUE)
-write.table(geno_Lh, file = "./data/genotype_Lh.txt", sep = "\t", col.names = TRUE, row.names = TRUE)
-write.table(geno_Pl, file = "./data/genotype_Pl.txt", sep = "\t", col.names = TRUE, row.names = TRUE)
-write.table(geno_Vo, file = "./data/genotype_Vo.txt", sep = "\t", col.names = TRUE, row.names = TRUE)
+write.table(geno_Ac, file = wd %&% "genotype_Ac.txt", sep = "\t", col.names = TRUE, row.names = TRUE)
+write.table(geno_Il, file = wd %&% "genotype_Il.txt", sep = "\t", col.names = TRUE, row.names = TRUE)
+write.table(geno_Lh, file = wd %&% "genotype_Lh.txt", sep = "\t", col.names = TRUE, row.names = TRUE)
+write.table(geno_Pl, file = wd %&% "genotype_Pl.txt", sep = "\t", col.names = TRUE, row.names = TRUE)
+write.table(geno_Vo, file = wd %&% "genotype_Vo.txt", sep = "\t", col.names = TRUE, row.names = TRUE)
 
 ```
 
-Generating MAP/PED files for plink
+## Generating MAP/PED files for plink
+
+MAP
 ```{r}
 nIndividuals_Ac <- ncol(geno_Ac)
 nSNPs_Ac <- nrow(geno_Ac)
 
 MAP <- phyMap %>% rename( SNP = rsid, CHR = chr, BP = pos) %>% mutate(CM = 0) %>% select(c(CHR, SNP, CM, BP))
-write_tsv(MAP, "/Users/natashasanthanam/Github/rat-genomic-analysis/data/rat_genotype.map", col_names = FALSE)
+write_tsv(MAP, wd %&% "rat_genotype.map", col_names = FALSE)
 ```
 
 
@@ -134,7 +146,7 @@ PEDsnpsAB <-
 
 PED <- cbind(PED6, PEDsnpsAB)
 
-write_tsv(PED, "/Users/natashasanthanam/Github/rat-genomic-analysis/data/rat_genotype.ped",col_names = FALSE)
+write_tsv(PED, wd %&% "rat_genotype.ped",col_names = FALSE)
 ```
 
 Repeat for other tissues ~ only need to change the rows
@@ -149,50 +161,67 @@ PEDsnpsAB <-
   sapply(seq(nrow(geno_Il)), function(snp)
     sapply(PEDsnps[snp, ], function(ind) myAlleles[snp, ind]))
 PED <- cbind(PED_Il, PEDsnpsAB)
-write_tsv(PED, "/Users/natashasanthanam/Github/rat-genomic-analysis/data/rat_genotype_Il.ped",col_names = FALSE)
+write_tsv(PED, wd %&% "rat_genotype_Il.ped",col_names = FALSE)
 
 PEDsnps <- geno_Lh[,] + 1
 PEDsnpsAB <- 
   sapply(seq(nrow(geno_Lh)), function(snp)
     sapply(PEDsnps[snp, ], function(ind) myAlleles[snp, ind]))
 PED <- cbind(PED_Lh, PEDsnpsAB)
-write_tsv(PED, "/Users/natashasanthanam/Github/rat-genomic-analysis/data/rat_genotype_Lh.ped",col_names = FALSE)
+write_tsv(PED, wd %&% "rat_genotype_Lh.ped",col_names = FALSE)
 
 PEDsnps <- geno_Pl[,] + 1
 PEDsnpsAB <- 
   sapply(seq(nrow(geno_Pl)), function(snp)
     sapply(PEDsnps[snp, ], function(ind) myAlleles[snp, ind]))
 PED <- cbind(PED_Pl, PEDsnpsAB)
-write_tsv(PED, "/Users/natashasanthanam/Github/rat-genomic-analysis/data/rat_genotype_Pl.ped",col_names = FALSE)
+write_tsv(PED, wd %&% "rat_genotype_Pl.ped",col_names = FALSE)
 
 PEDsnps <- geno_Vo[,] + 1
 PEDsnpsAB <- 
   sapply(seq(nrow(geno_Vo)), function(snp)
     sapply(PEDsnps[snp, ], function(ind) myAlleles[snp, ind]))
 PED <- cbind(PED_Vo, PEDsnpsAB)
-write_tsv(PED, "/Users/natashasanthanam/Github/rat-genomic-analysis/data/rat_genotype_Vo.ped",col_names = FALSE)
+write_tsv(PED, wd %&% "rat_genotype_Vo.ped",col_names = FALSE)
 
 ```
 
 
 Generating Phenotype file ~ We're using gene expression levels
 ```{r}
-pheno_Ac <- cbind(FID = rownames(gexAc_transpose), IID = rownames(gexAc_transpose), gexAc_transpose)
+pheno_Ac <- as.data.frame(cbind(FID = rownames(gexAc_transpose), IID = rownames(gexAc_transpose), gexAc_transpose))
 pheno_Il <- as.data.frame(cbind(FID = rownames(gexIl_transpose), IID = rownames(gexIl_transpose), gexIl_transpose))
 pheno_Lh <- as.data.frame(cbind(FID = rownames(gexLh_transpose), IID = rownames(gexLh_transpose), gexLh_transpose))
 pheno_Pl <- as.data.frame(cbind(FID = rownames(gexPl_transpose), IID = rownames(gexPl_transpose), gexPl_transpose))
 pheno_Vo <- as.data.frame(cbind(FID = rownames(gexVo_transpose), IID = rownames(gexVo_transpose), gexVo_transpose))
 
 
-write_tsv(pheno_Ac, "/Users/natashasanthanam/Github/rat-genomic-analysis/data/rat_pheno_Ac.txt", col_names = FALSE)
-write_tsv(pheno_Il, "/Users/natashasanthanam/Github/rat-genomic-analysis/data/rat_pheno_Il.txt", col_names = FALSE)
-write_tsv(pheno_Lh, "/Users/natashasanthanam/Github/rat-genomic-analysis/data/rat_pheno_Lh.txt", col_names = FALSE)
-write_tsv(pheno_Pl, "/Users/natashasanthanam/Github/rat-genomic-analysis/data/rat_pheno_Pl.txt", col_names = FALSE)
-write_tsv(pheno_Vo, "/Users/natashasanthanam/Github/rat-genomic-analysis/data/rat_pheno_Vo.txt", col_names = FALSE)
+write_tsv(pheno_Ac, wd %&% "rat_pheno_Ac.txt", col_names = FALSE)
+write_tsv(pheno_Il, wd %&% "rat_pheno_Il.txt", col_names = FALSE)
+write_tsv(pheno_Lh, wd %&% "rat_pheno_Lh.txt", col_names = FALSE)
+write_tsv(pheno_Pl, wd %&% "rat_pheno_Pl.txt", col_names = FALSE)
+write_tsv(pheno_Vo, wd %&% "rat_pheno_Vo.txt", col_names = FALSE)
 ```
 
 
-Convert MAP/PED files to plink (Did this 5X for all tissues)
+## Convert MAP/PED files to plink 
+
+All conversion to plink format use the same MAP file, but because of plink conventions, the MAP file must match the name of the PED file, so we rename the map file each time we convert genotypes for a different tissue.
+
 ```{bash, eval=FALSE}
-plink --file rat_genome --make-bed --out rat_genome
+cd /gpfs/data/im-lab/nas40t2/sabrina/Rat_Genomics_Paper_Pipeline/data
+
+plink --file rat_genotype --make-bed --out rat_genome_Ac
+
+mv rat_genotype.map rat_genotype_Il.map
+plink --file rat_genotype_Il --make-bed --out rat_genome_Il
+
+mv rat_genotype_Il.map rat_genotype_Lh.map
+plink --file rat_genotype_Lh --make-bed --out rat_genome_Lh
+
+mv rat_genotype_Lh.map rat_genotype_Pl.map
+plink --file rat_genotype_Pl --make-bed --out rat_genome_Pl
+
+mv rat_genotype_Pl.map rat_genotype_Vo.map
+plink --file rat_genotype_Vo --make-bed --out rat_genome_Vo
 ```

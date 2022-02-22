@@ -9,54 +9,16 @@ editor_options:
 
 ## Generate Heritability and Sparsity Estimates for all 5 tissues
 
-
 # Calculate Cis Heritability within 1MB 
-```{r setup, eval=FALSE}
-library(tidyverse)
-library(data.table)
-library(RSQLite)
-"%&%" = function(a,b) paste(a,b,sep="")
-date = Sys.Date()
-load("~/Box/imlab-data/Projects/PTRS-PGRS-Rosetta/Data-From-Abe-Palmer-Lab/Rdata/genoGex.RData")
-```
-
 
 Generate Genotype For all elements cis and trans
 
-```{r generate bimbam files for all tissues, eval=FALSE}
-geno_Ac = geno[,match(rownames(gexAc_transpose), colnames(geno))]
-geno_Il = geno[,match(rownames(gexIl_transpose), colnames(geno))]
-geno_Lh = geno[,match(rownames(gexLh_transpose), colnames(geno))]
-geno_Pl = geno[,match(rownames(gexPl_transpose), colnames(geno))]
-geno_Vo = geno[,match(rownames(gexVo_transpose), colnames(geno))]
-
-Ac_bimbam <- cbind(phyMap$chr, phyMap$pos, rownames(geno_Ac), phyMap$refAllele, phyMap$effectAllele, geno_Ac)
-Il_bimbam <- cbind(phyMap$chr, phyMap$pos, rownames(geno_Il),phyMap$refAllele, phyMap$effectAllele,  geno_Il)
-Lh_bimbam <- cbind(phyMap$chr, phyMap$pos, rownames(geno_Lh),phyMap$refAllele, phyMap$effectAllele,  geno_Lh)
-Pl_bimbam <- cbind(phyMap$chr, phyMap$pos, rownames(geno_Pl),phyMap$refAllele, phyMap$effectAllele,  geno_Pl)
-Vo_bimbam <- cbind(phyMap$chr, phyMap$pos, rownames(geno_Vo),phyMap$refAllele, phyMap$effectAllele,  geno_Vo)
-
-write.table(Ac_bimbam, file = wd %&% "Ac_bimbam",quote=F,col.names=F,row.names=F)
-write.table(Il_bimbam, file = wd %&% "Il_bimbam",quote=F,col.names=F,row.names=F)
-write.table(Lh_bimbam, file = wd %&% "Lh_bimbam",quote=F,col.names=F,row.names=F)
-write.table(Pl_bimbam, file = wd %&%"Pl_bimbam",quote=F,col.names=F,row.names=F)
-write.table(Vo_bimbam, file = wd %&%"Vo_bimbam",quote=F,col.names=F,row.names=F)
-```
-
-
 ```{r read in expression files, eval=FALSE}
-gtf <- read_tsv("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/Box_files/gtf.txt", col_names=TRUE)
-gexAc_transpose <- read.table("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/Box_files/gexAc_transpose.txt")
-gexIl_transpose <- read.table("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/Box_files/gexIl_transpose.txt")
-gexLh_transpose <- read.table("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/Box_files/gexLh_transpose.txt")
-gexPl_transpose <- read.table("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/Box_files/gexPl_transpose.txt")
-gexVo_transpose <- read.table("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/Box_files/gexVo_transpose.txt")
-
-ensidlist <- colnames(gexAc_transpose)
-ensidlist_Il <- colnames(gexIl_transpose)
-ensidlist_Lh <- colnames(gexLh_transpose)
-ensidlist_Pl <- colnames(gexPl_transpose)
-ensidlist_Vo <- colnames(gexVo_transpose)
+ensidlist <- gexAc$EnsemblGeneID
+ensidlist_Il <- gexIl$EnsemblGeneID
+ensidlist_Lh <- gexLh$EnsemblGeneID
+ensidlist_Pl <- gexPl$EnsemblGeneID
+ensidlist_Vo <- gexVo$EnsemblGeneID
 ```
 
 ```{r read in bim files for each tissue, eval=FALSE}
