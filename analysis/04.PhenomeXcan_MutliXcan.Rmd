@@ -150,14 +150,17 @@ human_genes <- inner_join(human_genes, orth.rats, by = "external_gene_name") %>%
 # Create rat MultiXcan matrix 
 ```{r compile rat MultiXcan matrix, eval=FALSE}
 filelist <- list.files("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/MultiXcan/results/", pattern = "_assoc.txt", full.names = TRUE)
+z_list <- list.files("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/prediXcan/metabolic_traits/associations/average_zscores", pattern = "zscore", full.names = TRUE)
+
 pheno_rats <- data_frame(gene = as.character())
 
 for(fila in filelist) {
   trait <- substr(fila, 67, (str_length(fila) - 18))
   tempo <- read_tsv(fila, col_names = TRUE) %>% select(c(gene, pvalue))
-  df <- z_df[na.omit(match(tempo$gene, z_df$gene)), ]
+  z_df <- read_tsv("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/prediXcan/metabolic_traits/associations/average_zscores/" %&% trait %&% "_avg_zscore.txt", col_names = FALSE) %>% rename(gene = X1) %>% rename(zscore.mean = X2)
   
-  tempo <- tempo %>% mutate(zscore = abs(qnorm(pvalue / 2) ) * sign(df$zscore.mean))
+  z_df <- z_df[order(match(z_df$gene, tempo$gene)), ]
+  tempo <- tempo %>% mutate(zscore = abs(qnorm(pvalue / 2) ) * sign(z_df$zscore.mean))
   colnames(tempo)[2] <- paste("pvalue", trait, sep = ".")
    colnames(tempo)[3] <- paste("zscore", trait, sep = ".")
   pheno_rats <- full_join(pheno_rats, tempo, by = "gene")
@@ -185,21 +188,14 @@ all_genes <- inner_join(pheno_rats, pheno_Multi_humans, by = "gene_name")
 ```{r plot -log pvalues of multiXcan comparing rats and humans}
 ggplot(all_genes, aes(-log10(bmi_bodylength_w_tail), -log10(BMI))) + geom_point()  + xlab("BMI in rats including Tail") + ylab("BMI in Humans") + ggtitle("Compare MultiXcan -log(pvalues) between Rats and Humans")
 cor.test(all_genes$bmi_bodylength_w_tail, all_genes$BMI, method = "spearman")
-
-ggplot(all_genes, aes(zscore.bmi_bodylength_w_tail, BMI)) + geom_point()  + xlab("BMI in rats including Tail") + ylab("BMI in Humans") + ggtitle("Compare MultiXcan Zscores between Rats and Humans")
-cor.test(all_genes$zscore.bmi_bodylength_w_tail, all_genes$BMI, method = "spearman")
 ```
 
 
 ```{r plot -log pvalues of multiXcan comparing rats and humans}
 ggplot(all_genes, aes(-log10(bodyweight), -log10(Body_Fat))) + geom_point()  + xlab("Bodyweight in rats") + ylab("Body Fat in Humans")  + geom_vline(xintercept = 1.30103) +  geom_hline(yintercept = 1.30103) + geom_label_repel(aes(label=ifelse((bodyweight <= 1e-5 | Body_Fat <= 1e-5), as.character(gene_name),''), box.padding   = 0.35, point.padding = 0.5)) 
 
-ggplot(all_genes, aes(zscore.bodyweight, Body_Fat)) + geom_point()  + xlab("Bodyweight in rats") + ylab("Body Fat in Humans")  + geom_vline(xintercept = 1.30103) +  geom_hline(yintercept = 1.30103) + geom_label_repel(aes(label=ifelse((zscore.bodyweight >= 1.645 | Body_Fat >= 1.645), as.character(gene_name),''), box.padding   = 0.35, point.padding = 0.5)) 
 
 ggplot(all_genes, aes(-log10(epifat), -log10(Body_Fat))) + geom_point()  + xlab("Epifat in rats") + ylab("Body Fat in Humans")  + geom_vline(xintercept = 1.30103) +  geom_hline(yintercept = 1.30103) + geom_label_repel(aes(label=ifelse((epifat <= 1e-5 | Body_Fat <= 1e-5), as.character(gene_name),''), box.padding   = 0.35, point.padding = 0.5))
-
-ggplot(all_genes, aes(zscore.epifat, Body_Fat)) + geom_point()  + xlab("Epifat in rats") + ylab("Body Fat in Humans")  + geom_vline(xintercept = 1.645) +  geom_hline(yintercept = 1.645) + geom_label_repel(aes(label=ifelse((zscore.epifat >= 1.645 | Body_Fat >= 1.645), as.character(gene_name),''), box.padding   = 0.35, point.padding = 0.5))
-
 
 ggplot(all_genes, aes(-log10(parafat), -log10(Body_Fat))) + geom_point()  + xlab("Parafat in rats") + ylab("Body Fat in Humans") + geom_vline(xintercept = 1.30103) +  geom_hline(yintercept = 1.30103) + geom_label_repel(aes(label=ifelse((parafat <= 1e-5 | Body_Fat <= 1e-5), as.character(gene_name),''), box.padding   = 0.35, point.padding = 0.5))
 
@@ -208,11 +204,19 @@ ggplot(all_genes, aes(-log10(retrofat), -log10(Body_Fat))) + geom_point()  + xla
 
 ggplot(all_genes, aes(-log10(fasting_glucose), -log10(Fasting_Glucose))) + geom_point()  + xlab("Fasting glucose in rats") + ylab("Fasting Glucose  in Humans")  + geom_vline(xintercept = 1.30103) +  geom_hline(yintercept = 1.30103) + geom_label_repel(aes(label=ifelse((fasting_glucose <= 1e-5 | Fasting_Glucose <= 1e-5 ), as.character(gene_name),''), box.padding   = 0.35, point.padding = 0.5))
 
-ggplot(all_genes, aes(zscore.fasting_glucose, Fasting_Glucose)) + geom_point()  + xlab("Fasting glucose in rats") + ylab("Fasting Glucose  in Humans")  + geom_vline(xintercept = 1.645) +  geom_hline(yintercept = 1.645) + geom_text_repel(aes(label=ifelse((zscore.fasting_glucose >= 1.645 | zscore.fasting_glucose <= -1.645), as.character(gene_name),''), box.padding   = 0.1, point.padding = 0.1, max.overlaps = 40))
+
 
 ggplot(all_genes, aes(-log10(bodylength_w_tail), -log10(Height))) + geom_point()  + xlab("Bodylength with tail in rats") + ylab("Height in Humans")  + geom_vline(xintercept = 1.30103) +  geom_hline(yintercept = 1.30103) + geom_label_repel(aes(label=ifelse((bodylength_w_tail <= 1e-5 | Height <= 1e-5 ), as.character(gene_name),''), box.padding   = 0.35, point.padding = 0.5,  max.overlaps = 30))
+```
 
+```{r pllot zscores from MultiXcan}
+ggplot(all_genes, aes(zscore.fasting_glucose, Fasting_Glucose)) + geom_point()  + xlab("Fasting Glucose in rats") + ylab("Fasting Glucose in Humans")  + geom_vline(xintercept = 0, color = "grey") +  geom_hline(yintercept = 0, color = "grey") + geom_label_repel(aes(label=ifelse((zscore.fasting_glucose > 1.96 & Fasting_Glucose > 1.96)| (zscore.fasting_glucose < -1.96 & Fasting_Glucose < -1.96), as.character(gene_name),'')), force = 0.05, size = 3, box.padding   = 0.1, point.padding = 0.2)
 
+ggplot(all_genes, aes(zscore.bodylength_w_tail, Height)) + geom_point()  + xlab("Bodylength with tail in rats") + ylab("Height in Humans")  + geom_vline(xintercept = 0, color = "grey") +  geom_hline(yintercept = 0, color = "grey") + geom_label_repel(aes(label=ifelse((zscore.bodylength_w_tail > 1.96 & Height > 1.96)| (zscore.bodylength_w_tail < -1.96 & Height < -1.96), as.character(gene_name),'')), force = 0.05, size = 3, box.padding   = 0.1, point.padding = 0.2)
+
+ggplot(all_genes, aes(zscore.bodyweight, Body_Fat)) + geom_point()  + xlab("Bodyweight in rats") + ylab("Body Fat in Humans")  + geom_vline(xintercept = 0, color = "grey") +  geom_hline(yintercept = 0, color = "grey") + geom_label_repel(aes(label=ifelse((zscore.bodyweight > 1.96 & Body_Fat > 1.96)| (zscore.bodyweight < -1.96 & Body_Fat < -1.96), as.character(gene_name),'')), force = 0.05, size = 3, box.padding   = 0.1, point.padding = 0.2)
+
+ggplot(all_genes, aes(zscore.bmi_bodylength_w_tail, BMI)) + geom_point()  + xlab("BMI with Tail in rats") + ylab("BMI in Humans")  + geom_vline(xintercept = 0, color = "grey") +  geom_hline(yintercept = 0, color = "grey") + geom_label_repel(aes(label=ifelse((zscore.bmi_bodylength_w_tail > 1.96 & BMI > 1.96)| (zscore.bmi_bodylength_w_tail < -1.96 & BMI < -1.96), as.character(gene_name),'')), force = 0.05, size = 3, box.padding   = 0.1, point.padding = 0.2)
 ```
 
 

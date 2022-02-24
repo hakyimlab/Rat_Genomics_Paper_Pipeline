@@ -14,6 +14,7 @@ library(RSQLite)
 library(data.table)
 library(qqman)
 "%&%" = function(a,b) paste(a,b,sep="")
+args = commandArgs(trailingOnly=TRUE)
 geno.dir <- "/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/Box_files/rat_genotypes_LD_pruned_0.95/"
 ```
 
@@ -77,17 +78,23 @@ python $METAXCAN/Predict.py \
 
 ```{r run associations, eval=FALSE}
 #run asssociation in prediXcan
- PHENO = "/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/Box_files/"
- RESULTS = "/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/prediXcan/"
- 
- 
+PHENO = "/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/Box_files/"
+RESULTS = "/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/prediXcan/metabolic_traits/"
+
 pheno <- read_csv(PHENO %&% "processed_obesity_rat_Palmer_phenotypes.csv", col_names = TRUE)
 
-for(i in 1:length(colnames(pheno))){
+for(i in 2:length(colnames(pheno))){
 trait <- colnames(pheno)[i]
-runLOC <- "python3 " %&% METAXCAN %&% "PrediXcanAssociation.py " %&% "--expression_file " %&% RESULTS %&% "rat_metabolic_Ac__predict.txt --input_phenos_file " %&% PHENO %&% "processed_obesity_rat_Palmer_cols_phenotypes.txt " %&% "--input_phenos_column " %&% i %&%  " --output " %&% RESULTS %&% "associations/rat_Palmer__association_" %&% trait %&% "_.txt --verbosity 9 --throw"
+runLOC <- "python3 " %&% METAXCAN %&% "/PrediXcanAssociation.py " %&% "--expression_file " %&% RESULTS %&% "rat_metabolic_" %&% args[1] %&% "__predict.txt --input_phenos_file " %&% PHENO %&% "processed_obesity_rat_Palmer_phenotypes.tsv " %&% "--input_phenos_column " %&% trait %&%  " --output " %&% RESULTS %&% "associations/" %&% args[1] %&% "__association_" %&% trait %&% ".txt --verbosity 9 --throw"
 system(runLOC)
 }
+```
+
+
+```{bash submit script for all tissues}
+Rscript --vanilla /gpfs/data/im-lab/nas40t2/natasha/rat_genomics/prediXcan/metabolic_trait_assoc_all_tis.R $tissue
+
+qsub -v tissue=$tis metabolic_assoc_all_tissues.pbs
 ```
 
 
@@ -165,29 +172,21 @@ python /gpfs/data/im-lab/nas40t2/natasha/GTEX_Analysis/MetaXcan/software/MulTiXc
 
 # Add Zscore to MutliXcan
 
-Add Zscore to each PrediXcan file 
-
-```{r add ind zscore}
-filelist <- list.files("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/prediXcan/metabolic_traits", pattern = "summary.txt", full.names = TRUE)
-for(fila in filelist) {
-  id <- substr(fila, 89,90)
-  tis <- fread(fila) %>% mutate(zscore = qnorm(pred_perf_pval))
-  fwrite(tis, "/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/prediXcan/metabolic_traits/predixcan_w_zscore/"%&% id %&% ".summary.txt")
-}
-```
-
-
 Calculate mean Zscore across all tisuses
+For each trait find the mean zscore across all tissues
 ```{r find mean Z, eval=FALSE}
-filelist <- list.files("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/prediXcan/metabolic_traits/predixcan_w_zscore", pattern = "summary.txt", full.names = TRUE)
+pheno <- read_csv("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/Box_files/processed_obesity_rat_Palmer_phenotypes.csv", col_names=TRUE)
 
-tempo <- data.frame(gene = as.character())
-for(fila in filelist) {
-    name <- substr(fila, 89,90)
-    tis <- fread(fila) %>% select(c(gene, zscore))
-    tempo <- full_join(tempo, tis,  by = "gene")
-} 
-
-tempo <- tempo %>% mutate (zscore.mean = rowMeans(tempo[,2:ncol(tempo)], na.rm = TRUE))
+for(i in 2:ncol(pheno)) {
+  trait <- colnames(pheno)[i]
+  filelist <- list.files(data.dir %&% "prediXcan/metabolic_traits/associations/", pattern = trait %&% ".txt", full.names = TRUE)
+  tempo <- data.frame(gene= as.character())
+  for(fila in filelist) {
+    df <- read_tsv(fila) %>% select(c(gene, zscore))
+   tempo <- full_join(tempo, df,  by = "gene")
+  }
+  tempo <- tempo %>% mutate (zscore.mean = rowMeans(tempo[,2:ncol(tempo)], na.rm = TRUE)) %>% select(c(gene, zscore.mean))
+  write_tsv(tempo, data.dir %&% "prediXcan/metabolic_traits/associations/average_zscores/" %&% trait %&% "_avg_zscore.txt", col_names = FALSE)
+}
 ```
 

@@ -1,0 +1,89 @@
+---
+title: "Human_PTRS_Comparison"
+author: "Natasha Santhanam"
+date: "2/24/2022"
+output: html_document
+---
+
+---
+title: "Human_PTRS_Performance_Comparison"
+author: "Natasha Santhanam"
+date: "2/23/2022"
+output: html_document
+---
+
+````{r setup, include=FALSE}
+library(tidyverse)
+library(data.table)
+library(readxl)
+library(qqman)
+library(arrow)
+library(RSQLite)
+library(glmnet)
+library(ggpubr)
+"%&%" = function(a,b) paste(a,b,sep="")
+data.dir <- "/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/"
+devtools::source_gist("ee5f67abddd0b761ee24410ea71c41aa")
+```
+##  Human PTRS Comparison
+
+We want to use PGP data to test Yanyu's PTRS weights and compare to observed height. We previously generated predicted expression in Summary_PTRS_PGS.Rmd
+
+# Caclualte Predicted Height in PGP using Individual PTRS Weights
+
+Read in Weights and Expression 
+```{r read in weights and expression, eval=FALSE}
+weights <- read_tsv(data.dir %&% "PTRS_weights/weight_files/elastic_net_alpha_0.1_British.export_model/weights.height.tsv.gz") %>% rename(gene_name = gene_id)
+
+# Here we use predicted expression not predicted and make sure to use human ensembl id gene name
+pred_expr <- read_tsv(data.dir %&% "PTRS_weights/PGP/PGP_Whole_Blood__predict.txt") %>% select(-c(FID))
+```
+
+```{r generate pred height, eval=FALSE}
+pred_height <- fn_generate_trait(pred_expr, weights)
+```
+
+# Compare Performance to Observed Height in Personal Genomes
+Get phenotype data
+```{r get pheno data, eval=FALSE}
+filename <- "/gpfs/data/im-lab/nas40t2/Data/Personal-Genomes/repgp-data.sqlite3"
+sqlite.driver <- dbDriver("SQLite")
+conn <- dbConnect(RSQLite::SQLite(), filename)
+dbListTables(conn)
+
+users <- dbGetQuery(conn, 'select * from users')
+dbDisconnect(conn)
+```
+
+
+
+```{r read in pheno, eval=FALSE}
+pheno <- users  %>% select(c(sample, height))%>% na.omit()
+n_genes = as.matrix(apply(weights[,2:ncol(weights)], 2, function(x) sum(x != 0 )))
+```
+
+
+```{r check correlation for height, eval=FALSE}
+pheno <- pheno[na.omit(match(rownames(pred_height), pheno$sample)),]
+tempo <- pred_height[na.omit(match(pheno$sample, rownames(pred_height))), ]
+
+height_df <- data.frame(estimate = numeric(), pvalue = numeric(), model = character(), n_genes_in_model = numeric(), conf.int.min = numeric(), conf.int.max = numeric())
+for(i in 1:ncol(tempo)){
+  height_df[i,1] <- cor.test(pheno$height, tempo[,i])$estimate
+  height_df[i,2] <- cor.test(pheno$height, tempo[,i])$p.value
+  height_df[i,3] <- paste("model", i, sep = "_")
+  height_df[i,4] <- n_genes[i,1]
+  height_df[i,5] <- cor.test(pheno$height, tempo[,i])$conf.int[1]
+  height_df[i,6] <- cor.test(pheno$height, tempo[,i])$conf.int[2]
+}
+```
+
+# Plot Performance
+
+```{r read in corr matrix}
+height_df <- readRDS("/Users/natashasanthanam/Github/rat-genomic-analysis/data/corr_height_indiv_PTRS.RDS")
+
+p1 = ggplot(height_df, aes(n_genes_in_model, estimate)) + geom_errorbar(aes(ymin = conf.int.min, ymax = conf.int.max ), width=0.2,  color="gray") + geom_point(color = "purple", position="jitter") + geom_line(color = "purple")   + xlab("Number of genes in each model") + ylab("Correlation Coefficient (r)") + ggtitle("Performance of PTRS for Height in Personal Genomes")
+p1
+```
+
