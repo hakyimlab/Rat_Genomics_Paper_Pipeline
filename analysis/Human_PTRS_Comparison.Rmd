@@ -83,7 +83,7 @@ for(i in 1:ncol(tempo)){
 ```{r read in corr matrix}
 height_df <- readRDS("/Users/natashasanthanam/Github/rat-genomic-analysis/data/corr_height_indiv_PTRS.RDS")
 
-p1 = ggplot(height_df, aes(n_genes_in_model, estimate)) + geom_errorbar(aes(ymin = conf.int.min, ymax = conf.int.max ), width=0.2,  color="gray") + geom_point(color = "purple", position="jitter") + geom_line(color = "purple")   + xlab("Number of genes in each model") + ylab("Correlation Coefficient (r)") + ggtitle("Performance of PTRS for Height in Personal Genomes")
+p1 = ggplot(height_df, aes(n_genes_in_model, estimate)) + geom_errorbar(aes(ymin = conf.int.min, ymax = conf.int.max ), width=0.2,  color="gray") + geom_point(color = "purple", position="jitter") + geom_line(color = "purple")   + xlab("Number of genes in each model") + ylab("Correlation Coefficient (r)") + ggtitle("Performance of PTRS for Height in Personal Genomes") + theme_bw()
 p1
 ```
 

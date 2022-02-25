@@ -37,7 +37,7 @@ dbListTables(phenomexcan_con)
 ```{r query PrediXcan for top genes associated with Obesity }
 input = list()
 input$sp_pheno = c("Obesity")
-input$sp_tissue = c("Brain_Nucleus_accumbens_basal_ganglia")
+input$sp_tissue = c("Thyroid")
 input$sp_limit = 30000
 if(T) obesity_genes <-  suppressMessages(get_sp_results_from_data_db(input))
 ```
@@ -54,7 +54,7 @@ obesity_genes <-  get_results_from_data_db(input)
 ```{r query prediXcan for top genes associated with Body fat percentage }
 input = list()
 input$sp_pheno = c("Body fat percentage")
-input$sp_tissue = c("Brain_Nucleus_accumbens_basal_ganglia")
+input$sp_tissue = c("Thyroid")
 input$sp_limit = 30000
 if(T) body_fat_genes <- suppressMessages(get_sp_results_from_data_db(input))
 ```
@@ -70,7 +70,7 @@ body_fat_genes <- get_results_from_data_db(input)
 ```{r query PrediXcan for top genes associated with BMI }
 input = list()
 input$sp_pheno = c("Body mass index (BMI) (23104_raw)")
-input$sp_tissue = c("Brain_Nucleus_accumbens_basal_ganglia")
+input$sp_tissue = c("Thyroid")
 input$sp_limit = 30000
 if(T) BMI_genes <- suppressMessages(get_sp_results_from_data_db(input))
 ```
@@ -86,7 +86,7 @@ input$limit = 30000
 ```{r query PrediXcan for top genes associated with Fasting Glucose }
 input = list()
 input$sp_pheno = c("Fasting Glucose")
-input$sp_tissue = c("Brain_Nucleus_accumbens_basal_ganglia")
+input$sp_tissue = c("Thyroid")
 input$sp_limit = 30000
 if(T) glucose_genes <- suppressMessages(get_sp_results_from_data_db(input))
 ```
@@ -102,7 +102,7 @@ input$limit = 30000
 ```{r query prediXcan for top genes associated with Height }
 input = list()
 input$sp_pheno = c("Height")
-input$sp_tissue = c("Brain_Nucleus_accumbens_basal_ganglia")
+input$sp_tissue = c("Thyroid")
 input$sp_limit = 30000
 if(T) height_genes <- suppressMessages(get_sp_results_from_data_db(input))
 ```
@@ -150,7 +150,6 @@ human_genes <- inner_join(human_genes, orth.rats, by = "external_gene_name") %>%
 # Create rat MultiXcan matrix 
 ```{r compile rat MultiXcan matrix, eval=FALSE}
 filelist <- list.files("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/MultiXcan/results/", pattern = "_assoc.txt", full.names = TRUE)
-z_list <- list.files("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/prediXcan/metabolic_traits/associations/average_zscores", pattern = "zscore", full.names = TRUE)
 
 pheno_rats <- data_frame(gene = as.character())
 
@@ -210,7 +209,7 @@ ggplot(all_genes, aes(-log10(bodylength_w_tail), -log10(Height))) + geom_point()
 ```
 
 ```{r pllot zscores from MultiXcan}
-ggplot(all_genes, aes(zscore.fasting_glucose, Fasting_Glucose)) + geom_point()  + xlab("Fasting Glucose in rats") + ylab("Fasting Glucose in Humans")  + geom_vline(xintercept = 0, color = "grey") +  geom_hline(yintercept = 0, color = "grey") + geom_label_repel(aes(label=ifelse((zscore.fasting_glucose > 1.96 & Fasting_Glucose > 1.96)| (zscore.fasting_glucose < -1.96 & Fasting_Glucose < -1.96), as.character(gene_name),'')), force = 0.05, size = 3, box.padding   = 0.1, point.padding = 0.2)
+ggplot(all_genes, aes(zscore.fasting_glucose, Fasting_Glucose)) + geom_point()  + xlab("Fasting Glucose in rats") + ylab("Fasting Glucose in Humans")  + geom_vline(xintercept = 0, color = "grey") +  geom_hline(yintercept = 0, color = "grey") + geom_label_repel(aes(label=ifelse((zscore.fasting_glucose > 1.96 & Fasting_Glucose > 1.96)| (zscore.fasting_glucose < -1.96 & Fasting_Glucose < -1.96), as.character(gene_name),'')), force = 0.01, size = 3, box.padding   = 0.1, point.padding = 0.2)
 
 ggplot(all_genes, aes(zscore.bodylength_w_tail, Height)) + geom_point()  + xlab("Bodylength with tail in rats") + ylab("Height in Humans")  + geom_vline(xintercept = 0, color = "grey") +  geom_hline(yintercept = 0, color = "grey") + geom_label_repel(aes(label=ifelse((zscore.bodylength_w_tail > 1.96 & Height > 1.96)| (zscore.bodylength_w_tail < -1.96 & Height < -1.96), as.character(gene_name),'')), force = 0.05, size = 3, box.padding   = 0.1, point.padding = 0.2)
 
