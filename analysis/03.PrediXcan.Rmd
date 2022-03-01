@@ -13,6 +13,7 @@ library(data.table)
 library(RSQLite)
 library(data.table)
 library(qqman)
+devtools::source_gist("0ddc9c0ea03245bb30efbe3e899897be")
 "%&%" = function(a,b) paste(a,b,sep="")
 args = commandArgs(trailingOnly=TRUE)
 geno.dir <- "/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/Box_files/rat_genotypes_LD_pruned_0.95/"
@@ -172,21 +173,37 @@ python /gpfs/data/im-lab/nas40t2/natasha/GTEX_Analysis/MetaXcan/software/MulTiXc
 
 # Add Zscore to MutliXcan
 
-Calculate mean Zscore across all tisuses
-For each trait find the mean zscore across all tissues
+Calculate most significant  Zscore across all tisuses
+For each trait find most significant pvalue and take sign of that effect
+
 ```{r find mean Z, eval=FALSE}
 pheno <- read_csv("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/Box_files/processed_obesity_rat_Palmer_phenotypes.csv", col_names=TRUE)
 
-for(i in 2:ncol(pheno)) {
+for(i in 9:ncol(pheno)) {
   trait <- colnames(pheno)[i]
   filelist <- list.files(data.dir %&% "prediXcan/metabolic_traits/associations/", pattern = trait %&% ".txt", full.names = TRUE)
   tempo <- data.frame(gene= as.character())
   for(fila in filelist) {
-    df <- read_tsv(fila) %>% select(c(gene, zscore))
+    tis <- substr(fila, 89, 90)
+    df <- read_tsv(fila) %>% select(c(gene, effect, pvalue)) 
+    new_eff <- paste("effect", tis, sep = "_")
+    new_pval <- paste("pvalue", tis, sep = "_")
+    colnames(df)[2] <- new_eff
+    colnames(df)[3] <- new_pval 
+    
    tempo <- full_join(tempo, df,  by = "gene")
   }
-  tempo <- tempo %>% mutate (zscore.mean = rowMeans(tempo[,2:ncol(tempo)], na.rm = TRUE)) %>% select(c(gene, zscore.mean))
-  write_tsv(tempo, data.dir %&% "prediXcan/metabolic_traits/associations/average_zscores/" %&% trait %&% "_avg_zscore.txt", col_names = FALSE)
+  most_sig = rowMins(as.matrix(tempo[,c(3,5,7,9,11)]))
+  
+  Ac <- tempo[na.omit(match(most_sig, tempo$pvalue_Ac)), c(1,2)] %>% rename(effect = effect_Ac )
+  Il <- tempo[na.omit(match(most_sig, tempo$pvalue_Il)), c(1,4)] %>% rename(effect = effect_Il )
+  Lh <- tempo[na.omit(match(most_sig, tempo$pvalue_Lh)), c(1,6)] %>% rename(effect = effect_Lh )
+  Pl <- tempo[na.omit(match(most_sig, tempo$pvalue_Pl)), c(1,8)] %>% rename(effect = effect_Pl )
+  Vo <- tempo[na.omit(match(most_sig, tempo$pvalue_Vo)), c(1,10)] %>% rename(effect = effect_Vo )
+  
+  df <- rbind(Ac, Il, Lh, Pl, Vo) 
+  df <- df %>% mutate(sign = sign(effect))
+  write_tsv(df, data.dir %&% "prediXcan/metabolic_traits/associations/most_sig_zscores/" %&% trait %&% "_avg_zscore.txt", col_names = FALSE)
 }
 ```
 

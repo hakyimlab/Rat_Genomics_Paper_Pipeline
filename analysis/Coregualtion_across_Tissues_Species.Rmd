@@ -66,10 +66,9 @@ ggarrange(p1, p2, ncol=2)
 Look at all genes across tissues in one individual
 Evidence of shared regulation across tissues
 ```{r read in one ind cor}
-i3 = readRDS("/Users/natashasanthanam/Downloads/00077E83E3.GREx.mat.RDS") %>% select(-c(gene, var))
+i3 = readRDS("/Users/natashasanthanam/Downloads/00077E83E3.GREx.mat.RDS") %>% dplyr::select(-c(gene, var))
 pairs(i3)
 ```
-
 
 
 2.  Co-regulation Shared Across Species
