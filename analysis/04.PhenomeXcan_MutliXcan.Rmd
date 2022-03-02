@@ -180,6 +180,9 @@ ggplot(all_genes, aes(zscore.bodylength_w_tail, BMI)) + geom_point()  + xlab("Bo
 ggplot(all_genes, aes(zscore.bodyweight, Body_Fat)) + geom_point()  + xlab("Bodyweight in rats") + ylab("Body Fat in Humans")  + geom_vline(xintercept = 0, color = "grey") +  geom_hline(yintercept = 0, color = "grey") + geom_label_repel(aes(label=ifelse((zscore.bodyweight > 1.96 & Body_Fat > 1.96)| (zscore.bodyweight < -1.96 & Body_Fat < -1.96), as.character(gene_name),'')), force = 0.05, size = 3, box.padding   = 0.1, point.padding = 0.2)
 
 ggplot(all_genes, aes(zscore.bmi_bodylength_w_tail, BMI)) + geom_point()  + xlab("BMI with Tail in rats") + ylab("BMI in Humans")  + geom_vline(xintercept = 0, color = "grey") +  geom_hline(yintercept = 0, color = "grey") + geom_label_repel(aes(label=ifelse((zscore.bmi_bodylength_w_tail > 1.96 & BMI > 1.96)| (zscore.bmi_bodylength_w_tail < -1.96 & BMI < -1.96), as.character(gene_name),'')), force = 0.05, size = 3, box.padding   = 0.1, point.padding = 0.2)
+
+ggplot(all_genes, aes(zscore.bodyweight, Body_Fat)) + geom_smooth()
+
 ```
 
 
