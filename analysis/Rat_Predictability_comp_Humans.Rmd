@@ -153,8 +153,12 @@ select gene, ensid, en_r2 ,h2,h2_ci from results where tissue = "DGN-WB";
 
 ```{r read in herit for humans and rats }
 rat_h2 <- read_tsv("/Users/natashasanthanam/Github/rat-genomic-analysis/data/Ac_PVE_estimates.txt", col_names = FALSE) %>% dplyr::rename(rat_herit = X2)
+
+
 human_h2 <- read_csv("/Users/natashasanthanam/Github/rat-genomic-analysis/data/human_h2.csv")
 human_h2$ensid <- sapply(strsplit(human_h2$ensid, "\\."), `[`, 1)
+summary(rat_h2$rat_herit)
+summary(human_h2$h2)
 ```
 
 Change gene names in rats
@@ -179,6 +183,8 @@ dbDisconnect(conn)
 rat_r2 <- rat_r2 %>% mutate(ensid = orth.rats[match(rat_r2$gene, orth.rats$rnorvegicus_homolog_ensembl_gene), 1]$ensembl_gene_id)
 all_r2 <- inner_join(rat_r2, human_h2, by = "ensid")
 cor.test(all_r2$R2, all_r2$en_r2, method = "spearman")
+
+
 ```
 
 Plot the Comparison between the two 

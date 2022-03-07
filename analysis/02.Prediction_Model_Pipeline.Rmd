@@ -254,6 +254,30 @@ for (i in 1:length(colnames(gexVo_transpose))) {
 ```
 
 ```{r}
+# Save expression as tsv
+Ac_expr <- as.data.frame(expressionAc) %>% mutate(ID = rownamse(expressionAc), .before = colnames(expressionAc))
+
+Il_expr <- as.data.frame(expressionIl) %>% mutate(ID = rownamse(expressionIl), .before = colnames(expressionIl))
+
+Lh_expr <- as.data.frame(expressionLh) %>% mutate(ID = rownamse(expressionLh), .before = colnames(expressionLh))
+
+Pl_expr <- as.data.frame(expressionPl) %>% mutate(ID = rownamse(expressionPl), .before = colnames(expressionPl))
+
+Vo_expr <- as.data.frame(expressionVo) %>% mutate(ID = rownamse(expressionVo), .before = colnames(expressionVo))
+
+
+exprlist <- list(Ac_expr, Il_expr, Lh_expr, Pl_expr, Vo_expr)
+tis <- c("Ac", "Il", "Lh", "Pl", "Vo")
+i = 1
+for(l in exprlist) {
+write_tsv(l, "/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/rat-genomic-analysis/expression_files/"
+%&% tis[i] %&% "_expression_transformed.tsv", col_names = TRUE)
+  i <- i+1
+}
+```
+
+
+```{r}
 # Saving the expression RDS objects to be used as arguments in the script
 saveRDS(as.matrix(expressionAc), "/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/rat-genomic-analysis/expression_files/Ac_expression_transformed.RDS")
 
@@ -282,7 +306,6 @@ saveRDS(gene_annotation, "/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/rat-gen
 ```
 
 
-Remember to save expression files as tsv as well with a column for ID 
 
 ```{bash}
 # Creating the meta data file for each tissue 
