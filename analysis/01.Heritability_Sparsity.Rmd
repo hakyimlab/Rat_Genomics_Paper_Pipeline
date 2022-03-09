@@ -226,7 +226,7 @@ for(i in 1:length(ensidlist)){
 
 ## Sparsity Analysis
 
-All the code above generates the local GRM for each phenotype (gene). With the GRM we then run gemma again to calculate both PVE (sparsity) and PGE (h2). I used a badger template to calculate h2 and sparsity for each tissue. This steps takes a lot of computing power, so we use Badger. It takes approximatley 2-3 days to run. 
+All the code above generates the local GRM for each phenotype (gene). With the GRM we then run gemma again to calculate both PVE (heritability) and PGE (sparsity). I used a badger template to calculate h2 and sparsity for each tissue. This steps takes a lot of computing power, so we use Badger. It takes approximatley 2-3 days to run. 
 
 The code to run badger is here
 ```{r}
@@ -530,3 +530,52 @@ write_tsv(PGE_df, "/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/GEMMA/Vo/PGE_e
 ```
 
 
+Now we have PVE and PGE estimates for each tissue and can generate the fitted curve figure for Heritability. 
+
+# Generate Fitted Heritability Curves with R2
+
+I'm showing the curve for Ac tissue but I generated the one for all other tissues as well. 
+
+```{r set parameters, eval=FALSE}
+theme_set(theme_bw(base_size = 8))
+Data <- "/Users/natashasanthanam/Box/imlab-data/Projects/PTRS-PGRS-Rosetta/Rat-Genomics/Tyson-PalmerLab_PredictDB_Results/sql/"
+poly_dir <- "/Users/natashasanthanam/Github/rat-genomic-analysis/data/"
+```
+
+```{r generate order function, eval=FALSE}
+load_pve <- function(df){
+  df <- df[order(df$point_estimate),]
+  df$index <- 1:nrow(df)
+  return(df)
+}
+```
+
+First we get the R2 for the tissue from the model we generated
+```{r get R2 for tissue, eval=FALSE}
+filename <- Data %&% "Ac_output_db.db"
+sqlite.driver <- dbDriver("SQLite")
+conn <- dbConnect(RSQLite::SQLite(), filename)
+
+extra <- dbGetQuery(conn, 'select * from extra')
+extra <- extra[, c(1,2,4,3,5,6)]
+dbDisconnect(conn)
+```
+
+Next we create the ordered plot for heritability for Ac. We use PVE as h2, the proportion of variance in phenotypes explained by typed genotypes. 
+```{r}
+PVE_Ac <- read_tsv(poly_dir %&% "Ac_PVE_estimates.txt", col_names = FALSE)
+colnames(PVE_Ac) <- c("gene", "point_estimate", "credible_set_1", "credible_set_2")
+PVE_Ac <- inner_join(PVE_Ac, extra, by = "gene")
+
+A_df_Ac <- load_pve(PVE_Ac)
+plt_1 <- (ggplot(data = A_df_Ac, aes(x = index))
+          + geom_point(aes(x=index, y=pred.perf.R2), colour = "red", size = 0.2)
+          + geom_line(aes(y = point_estimate))
+          + geom_hline(yintercept = 0, linetype=2)
+          + labs(x = 'Genes Sorted by Proportion of Variance Explained (PVE)',
+                 y = 'PVE')
+           + ylim(-0.5,1)
+           + annotate("text", x = 1250, y = 0.9, label = "Mean h2 =  0.089", size = 3)
+           + annotate("text", x = 1250, y = 0.8, label = "Mean r2 =  0.085", size = 3)) 
+)
+plt_1
