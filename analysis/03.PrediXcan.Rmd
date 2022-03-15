@@ -98,6 +98,49 @@ Rscript --vanilla /gpfs/data/im-lab/nas40t2/natasha/rat_genomics/prediXcan/metab
 qsub -v tissue=$tis metabolic_assoc_all_tissues.pbs
 ```
 
+Format and Plot PrediXcan Results
+
+```{r format prediXcan assocs, eval=FALSE}
+results.dir <- "/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/prediXcan/associations/"
+filelist <- list.files(results.dir, pattern = "mice_Palmer__association", full.names = TRUE)
+full_df <- data.frame()
+
+for(fila in filelist) {
+  assoc_fila <- read_tsv(fila, col_names = TRUE)
+  pheno_id <- substr(fila, 97, (str_length(fila) - 5))
+  tempo <- cbind(assoc_fila, metabolic_trait=pheno_id) %>% select(-c(status))
+  full_df <- rbind(full_df, tempo)
+} 
+#full_df <- read_tsv("/Users/natashasanthanam/Github/rat-genomic-analysis/data/rat_metabolic_traits_Ac_full_assocs.txt", col_names = TRUE)
+
+tempo_df <- full_df %>% filter(pvalue < 5.836349e-06)
+
+#589 sig genes
+tempo_df %>% group_by(gene) %>% summarise(n = n())
+
+#all 10 traits
+tempo_df %>% group_by(metabolic_trait) %>% summarise(n = n())
+```
+
+
+```{r plot prediXcan results as miami plot divided per trait}
+gene_annot <- readRDS("/Users/natashasanthanam/Github/rat-genomic-analysis/data/gene_annotation.RDS") %>% select(c("chr", "gene_id", "gene_name", "start", "end")) %>% rename(gene = gene_id)
+
+tempo_manhatt <- inner_join(gene_annot, full_df, by = "gene")
+tempo_manhatt$chr <- as.numeric(tempo_manhatt$chr)
+
+bmi_manhat <- tempo_manhatt %>% filter(metabolic_trait == "bmi_bodylength_w_tail" | metabolic_trait == "bmi_bodylength_wo_tail")
+
+height_manhat <- tempo_manhatt %>% filter(metabolic_trait == "bodylength_w_tail" | metabolic_trait == "bodylength_wo_tail" | metabolic_trait == "tail_length")
+
+manhattan(bmi_manhat, chr="chr", bp="start", snp="gene_name", p="pvalue", ylim = c(0, 13), suggestiveline = T, genomewideline = T, annotatePval = 5.767678e-07, main = "Manhattan plot of Significant BMI Associations")
+abline(h= 6.238999, col="blue")
+
+manhattan(height_manhat, chr="chr", bp="start", snp="gene_name", p="pvalue",  suggestiveline = T, genomewideline = T, annotatePval = 5.767678e-07, main = "Manhattan plot of Significant Body Length Associations")
+abline(h= 6.238999, col="blue")
+
+```
+
 
 ## Run MultiXcan
 

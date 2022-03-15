@@ -21,7 +21,6 @@ library(RSQLite)
 library(qqman)
 library(ggrepel)
 library(ggpubr)
-library(biomaRt)
 "%&%" = function(a,b) paste(a,b,sep="")
 data.dir <- "/Users/natashasanthanam/Github/rat-genomic-analysis/"
 ```
@@ -146,13 +145,6 @@ all_genes <- inner_join(pheno_rats, pheno_Multi_humans, by = "gene_name")
 
 # Plot Pvalues across different mice/human pheno combos
 
-
-```{r plot -log pvalues of multiXcan comparing rats and humans}
-ggplot(all_genes, aes(-log10(bmi_bodylength_w_tail), -log10(BMI))) + geom_point()  + xlab("BMI in rats including Tail") + ylab("BMI in Humans") + ggtitle("Compare MultiXcan -log(pvalues) between Rats and Humans")
-cor.test(all_genes$bmi_bodylength_w_tail, all_genes$BMI, method = "spearman")
-```
-
-
 ```{r plot -log pvalues of multiXcan comparing rats and humans}
 ggplot(all_genes, aes(-log10(bodyweight), -log10(Body_Fat))) + geom_point()  + xlab("Bodyweight in rats") + ylab("Body Fat in Humans")  + geom_vline(xintercept = 1.30103) +  geom_hline(yintercept = 1.30103) + geom_label_repel(aes(label=ifelse((bodyweight <= 1e-5 | Body_Fat <= 1e-5), as.character(gene_name),''), box.padding   = 0.35, point.padding = 0.5)) 
 
@@ -170,6 +162,7 @@ ggplot(all_genes, aes(-log10(fasting_glucose), -log10(Fasting_Glucose))) + geom_
 
 ggplot(all_genes, aes(-log10(bodylength_w_tail), -log10(Height))) + geom_point()  + xlab("Bodylength with tail in rats") + ylab("Height in Humans")  + geom_vline(xintercept = 1.30103) +  geom_hline(yintercept = 1.30103) + geom_label_repel(aes(label=ifelse((bodylength_w_tail <= 1e-5 | Height <= 1e-5 ), as.character(gene_name),''), box.padding   = 0.35, point.padding = 0.5,  max.overlaps = 30))
 ```
+# Plot Zscores 
 
 ```{r plot zscores from MultiXcan}
 ggplot(all_genes, aes(zscore.fasting_glucose, Fasting_Glucose)) + geom_point()  + xlab("Fasting Glucose in rats") + ylab("Fasting Glucose in Humans")  + geom_vline(xintercept = 0, color = "grey") +  geom_hline(yintercept = 0, color = "grey") + geom_label_repel(aes(label=ifelse((zscore.fasting_glucose > 1.96 & Fasting_Glucose > 1.96)| (zscore.fasting_glucose < -1.96 & Fasting_Glucose < -1.96), as.character(gene_name),'')), force = 0.01, size = 3, box.padding   = 0.1, point.padding = 0.2)
@@ -200,11 +193,58 @@ nom_genes <- all_genes %>% filter(bmi_bodylength_w_tail <= 0.05 | bmi_bodylength
 ```
 
 # Enrichment Analysis
+make qqunif function
+```{r qqunif function, eval=FALSE}
+qqunif = 
+  function(p,BH=T,CI=T,mlog10_p_thres=30,...)
+  {
+    ## thresholded by default at 1e-30
+    p=na.omit(p)
+    nn = length(p)
+    xx =  -log10((1:nn)/(nn+1))
+    
+    p_thres = 10^{-mlog10_p_thres}
+    if( sum( p < p_thres) )
+    {
+      warning(paste("thresholding p to ",p_thres) )
+      p = pmax(p, p_thres)
+    }
+    plot( xx,  -sort(log10(p)),
+          xlab=expression(Expected~~-log[10](italic(p))),
+          ylab=expression(Observed~~-log[10](italic(p))),
+          cex.lab=1.4,mgp=c(2,1,0),
+          ... )
+    abline(0,1,col='gray')
+    if(CI)
+    {
+      ## create the confidence intervals
+      c95 <- rep(0,nn)
+      c05 <- rep(0,nn)
+      ## the jth order statistic from a
+      ## uniform(0,1) sample
+      ## has a beta(j,n-j+1) distribution
+      ## (Casella & Berger, 2002,
+      ## 2nd edition, pg 230, Duxbury)
+      ## this portion was posted by anonymous on
+      ## http://gettinggeneticsdone.blogspot.com/2009/11/qq-plots-of-p-values-in-r-using-ggplot2.html
+      
+      for(i in 1:nn)
+      {
+        c95[i] <- qbeta(0.95,i,nn-i+1)
+        c05[i] <- qbeta(0.05,i,nn-i+1)
+      }
+      
+      lines(xx,-log10(c95),col='gray')
+      lines(xx,-log10(c05),col='gray')
+    }
+  }
+```
+
 
 ```{r enrichment for fasting glucose}
 devtools::source_gist("38431b74c6c0bf90c12f")
 qqunif(glucose_genes$pvalue,main="Fasting Glucose Enrichment Plot")
-fasting_glucose_rat_genes <- pheno_rats %>% filter(fasting_glucose <= 0.05) %>% .[["gene_name"]] %>% na.omit()
+fasting_glucose_rat_genes <- pheno_rats %>% filter(pvalue.fasting_glucose <= 0.05) %>% .[["gene_name"]] %>% na.omit()
 
 qqpoints(glucose_genes %>% filter(gene_name %in% fasting_glucose_rat_genes) %>% .[["pvalue"]],pch='+', col=3)
 ```

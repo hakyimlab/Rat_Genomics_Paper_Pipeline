@@ -10,6 +10,7 @@ library(tidyverse)
 library(data.table)
 library(ggplot2)
 library(RSQLite)
+dir <- "/Users/natashasanthanam/Github/rat-genomic-analysis/data/"
 source("./Rat_Genomics_Paper_Pipeline/analysis/02.Prediction_Model_Pipeline.Rmd")
 ```
 
@@ -46,14 +47,14 @@ tempo <- tempo[sample(nrow(tempo), 20), ]
 
 Plot results of r for all parameers of alpha
 ```{r plot all resuls, eval=FALSE}
-data_long <- tempo %>% dplyr::select(-c(Average)) %>%  pivot_longer(!gene, names_to = "value", values_to = "count")
+tempo <- read_tsv(dir %&% "rat_elasticNet_cor.txt", col_names = TRUE)
+data_long <- tempo %>%  pivot_longer(!gene, names_to = "value", values_to = "count")
    
-p1 <- ggplot(data_long, aes(x = as.numeric(value) , y = count), group=gene) + geom_point(lwd=0.5,show_guide = FALSE,linetype=1) + aes(color = gene) + geom_line(lwd=0.5, show_guide = FALSE, linetype=1) +  xlab(expression(paste("elastic net mixing parameter (",alpha, ")"))) + ylab(expression(paste("10-fold cross-validation R"))) + theme_bw(base_size = 12) + coord_cartesian(ylim=c(0,0.8),xlim=c(-0.02,1.02))
+p1 <-  ggplot(data_long, aes(x = as.numeric(value), y = count)) + geom_smooth(show_guide = FALSE, se=T, size = .5)  +  xlab(expression(paste("elastic net mixing parameter (",alpha, ")"))) + ylab(expression(paste("10-fold cross-validated R"))) + theme_bw(base_size = 16)
 
-tempo <- tempo %>% select(-c(Average))
 p2 = ggplot(tempo, aes(x = `0`, y = `0.5`)) + geom_hex(bins = 50)   +
       geom_abline(slope = 1, intercept = 0, color = "darkgrey", size = 0.8) +
       ylab("cor for mixing paramter = 0.5" ) +
-      xlab("cor for mixing paramter = 0")
+      xlab("cor for mixing paramter = 0") + theme_bw(base_size = 16)
 ```
 

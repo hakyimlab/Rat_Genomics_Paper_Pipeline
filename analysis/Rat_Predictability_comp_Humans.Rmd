@@ -174,7 +174,7 @@ cor.test(all_h2$rat_herit, all_h2$h2)
 
 Compare Predictability (R2) between Humans and Rats
 ```{r comp r2 between humans and rats}
-fila <- "/Users/natashasanthanam/Box/imlab-data/data-Github/rat-genomic-analysis/sql/Lh_output_db.db"
+fila <- "/Users/natashasanthanam/Box/imlab-data/data-Github/rat-genomic-analysis/sql/Tyson_original_models/Ac_output_db.db"
 sqlite.driver <- dbDriver("SQLite")
 conn <- dbConnect(RSQLite::SQLite(), fila)
 rat_r2 <- dbGetQuery(conn, 'select * from extra')
@@ -182,18 +182,16 @@ dbDisconnect(conn)
 
 rat_r2 <- rat_r2 %>% mutate(ensid = orth.rats[match(rat_r2$gene, orth.rats$rnorvegicus_homolog_ensembl_gene), 1]$ensembl_gene_id)
 all_r2 <- inner_join(rat_r2, human_h2, by = "ensid")
-cor.test(all_r2$R2, all_r2$en_r2, method = "spearman")
-
-
+cor.test(all_r2$R2, all_r2$en_r2)
 ```
 
 Plot the Comparison between the two 
 ```{r save inner join of r2 and h2}
-Lh_h2 <- read_tsv("/Users/natashasanthanam/Github/rat-genomic-analysis/data/Lh_PVE_estimates.txt", col_names = FALSE) %>% dplyr::rename(rat_h2 = X2) %>% dplyr::rename(gene.x = X1) %>% mutate(rat_ci = paste(round(Lh_h2$X3, digits = 5), round(Lh_h2$X4, digits = 5), sep = "-")) %>% dplyr::select(c(gene.x, rat_h2, rat_ci))
+Ac_h2 <- rat_h2 %>% dplyr::rename(gene.x = X1) %>% mutate(rat_ci = paste(round(Ac_h2$X3, digits = 5), round(Ac_h2$X4, digits = 5), sep = "-")) %>% dplyr::select(c(gene.x, rat_herit, rat_ci))
 
-lg_df <- inner_join(all_r2, Lh_h2, by = "gene.x")
+lg_df <- inner_join(all_r2, Ac_h2, by = "gene.x")
 
-lg_df <- lg_df %>% dplyr::select(c(ensid, gene.x, genename, R2, en_r2,rat_h2,h2,  rat_ci, h2_ci))
+lg_df <- lg_df %>% dplyr::select(c(ensid, gene.x, genename, R2, en_r2,rat_herit,h2,  rat_ci, h2_ci))
 colnames(lg_df) = c("ensembl_id", "rat_ensembl_id", "genename", "rat_r2", "human_r2", "rat_h2", "human_h2", "rat_h2_ci", "human_h2_ci")
 
 # Plot h2 between rats and Humans with line for null 

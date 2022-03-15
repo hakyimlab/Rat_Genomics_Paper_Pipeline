@@ -572,10 +572,12 @@ plt_1 <- (ggplot(data = A_df_Ac, aes(x = index))
           + geom_point(aes(x=index, y=pred.perf.R2), colour = "red", size = 0.2)
           + geom_line(aes(y = point_estimate))
           + geom_hline(yintercept = 0, linetype=2)
+          + geom_ribbon(aes(ymax = credible_set_2, ymin = credible_set_1),
+                         alpha = 0.25)
           + labs(x = 'Genes Sorted by Proportion of Variance Explained (PVE)',
                  y = 'PVE')
            + ylim(-0.5,1)
-           + annotate("text", x = 1250, y = 0.9, label = "Mean h2 =  0.089", size = 3)
-           + annotate("text", x = 1250, y = 0.8, label = "Mean r2 =  0.085", size = 3)) 
-)
+           + annotate("text", x = 1250, y = 0.9, label = "Mean h2 =  0.089", size = 3.5)
+           + annotate("text", x = 1250, y = 0.8, label = "Mean r2 =  0.085", size = 3.5)) 
 plt_1
+```
