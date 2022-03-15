@@ -164,17 +164,33 @@ ggplot(all_genes, aes(-log10(bodylength_w_tail), -log10(Height))) + geom_point()
 ```
 # Plot Zscores 
 
+Get Top Genes from weights file for height and BMI 
+that way we can highlight the same genes in the MultiXcan results
+```{r get weights file}
+top_genes_height <- read_tsv("/Users/natashasanthanam/CRI/weights.height.tsv.gz") %>% select(c(gene_id, model_6)) %>% filter(model_6 != 0) %>% select(c(gene_id)) 
+
+top_genes_bmi <- read_tsv("/Users/natashasanthanam/CRI/weights.bmi.tsv.gz") %>% select(c(gene_id, model_4)) %>% filter(model_4 != 0) %>% select(c(gene_id)) 
+
+top_genes_height$gene_id = sapply(strsplit(top_genes_height$gene_id, "\\."), `[`, 1)
+top_genes_bmi$gene_id = sapply(strsplit(top_genes_bmi$gene_id, "\\."), `[`, 1)
+
+top_genes_height <- top_genes_height %>% mutate(gene_name = orth.rats[match(top_genes_height$gene_id, orth.rats$ensembl_gene_id), 2]$external_gene_name)
+top_genes_bmi <- top_genes_bmi %>% mutate(gene_name = orth.rats[match(top_genes_bmi$gene_id, orth.rats$ensembl_gene_id), 2]$external_gene_name)
+```
+
+
 ```{r plot zscores from MultiXcan}
 ggplot(all_genes, aes(zscore.fasting_glucose, Fasting_Glucose)) + geom_point()  + xlab("Fasting Glucose in rats") + ylab("Fasting Glucose in Humans")  + geom_vline(xintercept = 0, color = "grey") +  geom_hline(yintercept = 0, color = "grey") + geom_label_repel(aes(label=ifelse((zscore.fasting_glucose > 1.96 & Fasting_Glucose > 1.96)| (zscore.fasting_glucose < -1.96 & Fasting_Glucose < -1.96), as.character(gene_name),'')), force = 0.01, size = 3, box.padding   = 0.1, point.padding = 0.2)
 
 
-ggplot(all_genes, aes(zscore.bodylength_w_tail, BMI)) + geom_point()  + xlab("Bodylength with tail in rats") + ylab("BMI in Humans")  + geom_vline(xintercept = 0, color = "grey") +  geom_hline(yintercept = 0, color = "grey") + geom_label_repel(aes(label=ifelse((zscore.bodylength_w_tail > 1.96 & BMI > 1.96)| (zscore.bodylength_w_tail < -1.96 & BMI < -1.96), as.character(gene_name),'')), force = 0.05, size = 2)
+ggplot(all_genes, aes(zscore.bodylength_w_tail, BMI)) + geom_point(color = ifelse(all_genes$gene_name %in% top_genes_height$gene_name, 'red', 'black'))  + xlab("Bodylength with tail in rats") + ylab("BMI in Humans")  + geom_vline(xintercept = 0, color = "grey") +  geom_hline(yintercept = 0, color = "grey") + geom_label_repel(aes(label=ifelse((zscore.bodylength_w_tail > 1.96 | zscore.bodylength_w_tail < -1.96 ), as.character(gene_name),'')), force = 0.05, size = 2)
 
-ggplot(all_genes, aes(zscore.bodyweight, Body_Fat)) + geom_point()  + xlab("Bodyweight in rats") + ylab("Body Fat in Humans")  + geom_vline(xintercept = 0, color = "grey") +  geom_hline(yintercept = 0, color = "grey") + geom_label_repel(aes(label=ifelse((zscore.bodyweight > 1.96 & Body_Fat > 1.96)| (zscore.bodyweight < -1.96 & Body_Fat < -1.96), as.character(gene_name),'')), force = 0.05, size = 3, box.padding   = 0.1, point.padding = 0.2)
 
-ggplot(all_genes, aes(zscore.bmi_bodylength_w_tail, BMI)) + geom_point()  + xlab("BMI with Tail in rats") + ylab("BMI in Humans")  + geom_vline(xintercept = 0, color = "grey") +  geom_hline(yintercept = 0, color = "grey") + geom_label_repel(aes(label=ifelse((zscore.bmi_bodylength_w_tail > 1.96 & BMI > 1.96)| (zscore.bmi_bodylength_w_tail < -1.96 & BMI < -1.96), as.character(gene_name),'')), force = 0.05, size = 3, box.padding   = 0.1, point.padding = 0.2)
+ggplot(all_genes, aes(zscore.bodylength_w_tail, Height)) + geom_point(color = ifelse(all_genes$gene_name %in% top_genes_height$gene_name, 'red', 'black'))  + xlab("Bodylength with tail in rats") + ylab("Height in Humans")  + geom_vline(xintercept = 0, color = "grey") +  geom_hline(yintercept = 0, color = "grey") + geom_label_repel(aes(label=ifelse((zscore.bodylength_w_tail > 1.96 | zscore.bodylength_w_tail < -1.96 ), as.character(gene_name),'')), force = 0.05, size = 2)
 
-ggplot(all_genes, aes(zscore.bodyweight, Body_Fat)) + geom_smooth()
+ggplot(all_genes, aes(zscore.bmi_bodylength_w_tail, BMI)) + geom_point(color = ifelse(all_genes$gene_name %in% top_genes_bmi$gene_name, 'red', 'black'))  + xlab("BMI with Tail in rats") + ylab("BMI in Humans")  + geom_vline(xintercept = 0, color = "grey") +  geom_hline(yintercept = 0, color = "grey") + geom_label_repel(aes(label=ifelse(zscore.bmi_bodylength_w_tail > 1.96 | zscore.bmi_bodylength_w_tail < -1.96, as.character(gene_name),'')), force = 0.05, size = 3, box.padding   = 0.1, point.padding = 0.2)
+
+ggplot(all_genes, aes(zscore.bmi_bodylength_wo_tail, BMI)) + geom_point(color = ifelse(all_genes$gene_name %in% top_genes_bmi$gene_name, 'red', 'black'))  + xlab("BMI without Tail in rats") + ylab("BMI in Humans")  + geom_vline(xintercept = 0, color = "grey") +  geom_hline(yintercept = 0, color = "grey") + geom_label_repel(aes(label=ifelse(zscore.bmi_bodylength_wo_tail > 1.96 | zscore.bmi_bodylength_wo_tail < -1.96, as.character(gene_name),'')), force = 0.05, size = 3, box.padding   = 0.1, point.padding = 0.2)
 
 ```
 
@@ -251,47 +267,47 @@ qqpoints(glucose_genes %>% filter(gene_name %in% fasting_glucose_rat_genes) %>% 
 
 ```{r enrichment for Bodyfat}
 qqunif(body_fat_genes$pvalue,main="Body Fat Enrichment Plot with retrofat")
-retrofat_genes <- pheno_rats %>% filter(retrofat <= 0.05) %>% .[["gene_name"]] %>% na.omit()
+retrofat_genes <- pheno_rats %>% filter(pvalue.retrofat <= 0.05) %>% .[["gene_name"]] %>% na.omit()
 qqpoints(body_fat_genes %>% filter(gene_name %in% retrofat_genes) %>% .[["pvalue"]],pch='+', col=3)
 
 qqunif(body_fat_genes$pvalue,main="Body Fat Enrichment Plot with parafat")
-parafat_genes <- pheno_rats %>% filter(parafat <= 0.05) %>% .[["gene_name"]] %>% na.omit()
+parafat_genes <- pheno_rats %>% filter(pvalue.parafat <= 0.05) %>% .[["gene_name"]] %>% na.omit()
 qqpoints(body_fat_genes %>% filter(gene_name %in% parafat_genes) %>% .[["pvalue"]],pch='+', col=3)
 
 qqunif(body_fat_genes$pvalue,main="Body Fat Enrichment Plot with Epifat")
 #epifat_genes <- pheno_rats %>% filter(epifat <= 0.05) %>% .[["gene_name"]] %>% na.omit()
-epifat_genes <- pheno_rats %>% filter(epifat <= 1e-4) %>% .[["gene_name"]] %>% na.omit()
+epifat_genes <- pheno_rats %>% filter(pvalue.epifat <= 1e-4) %>% .[["gene_name"]] %>% na.omit()
 qqpoints(body_fat_genes %>% filter(gene_name %in% epifat_genes) %>% .[["pvalue"]],pch='+', col=3)
 ```
 
 
 ```{r enrichment for Obesity and BMI}
 qqunif(obesity_genes$pvalue,main="Obesity Enrichment Plot with Bodyweight")
-obesity_genes_rats <- pheno_rats %>% filter(bodyweight <= 0.05) %>% .[["gene_name"]] %>% na.omit()
+obesity_genes_rats <- pheno_rats %>% filter(pvalue.bodyweight <= 0.05) %>% .[["gene_name"]] %>% na.omit()
 qqpoints(obesity_genes %>% filter(gene_name %in% obesity_genes_rats) %>% .[["pvalue"]],pch='+', col=3)
 
 qqunif(BMI_genes$pvalue,main="BMI Enrichment Plot")
-BMI_genes_rats <- pheno_rats %>% filter(bmi_bodylength_wo_tail <= 0.05) %>% .[["gene_name"]] %>% na.omit()
+BMI_genes_rats <- pheno_rats %>% filter(pvalue.bmi_bodylength_wo_tail <= 0.05) %>% .[["gene_name"]] %>% na.omit()
 qqpoints(BMI_genes %>% filter(gene_name %in% BMI_genes_rats) %>% .[["pvalue"]],pch='+', col=3)
 
 qqunif(BMI_genes$pvalue,main="BMI Enrichment Plot")
-BMI_genes_rats <- pheno_rats %>% filter(bmi_bodylength_w_tail <= 0.05) %>% .[["gene_name"]] %>% na.omit()
+BMI_genes_rats <- pheno_rats %>% filter(pvalue.bmi_bodylength_w_tail <= 0.05) %>% .[["gene_name"]] %>% na.omit()
 qqpoints(BMI_genes %>% filter(gene_name %in% BMI_genes_rats) %>% .[["pvalue"]],pch='+', col=3)
 
 
 qqunif(height_genes$pvalue,main="Height Enrichment Plot")
 #height_genes_rats <- pheno_rats %>% filter(bodylength_w_tail <= 0.05) %>% .[["gene_name"]] %>% na.omit()
-height_genes_rats <- pheno_rats %>% filter(bodylength_w_tail <= 1e-4) %>% .[["gene_name"]] %>% na.omit()
+height_genes_rats <- pheno_rats %>% filter(pvalue.bodylength_w_tail <= 1e-4) %>% .[["gene_name"]] %>% na.omit()
 qqpoints(height_genes %>% filter(gene_name %in% height_genes_rats) %>% .[["pvalue"]],pch='+', col=3)
 
 qqunif(height_genes$pvalue,main="Height Enrichment Plot with Bodylength without tail")
 #height_genes_rats <- pheno_rats %>% filter(bodylength_wo_tail <= 0.05) %>% .[["gene_name"]] %>% na.omit()
-height_genes_rats <- pheno_rats %>% filter(bodylength_wo_tail <= 1e-4) %>% .[["gene_name"]] %>% na.omit()
+height_genes_rats <- pheno_rats %>% filter(pvalue.bodylength_wo_tail <= 1e-4) %>% .[["gene_name"]] %>% na.omit()
 qqpoints(height_genes %>% filter(gene_name %in% height_genes_rats) %>% .[["pvalue"]],pch='+', col=3)
 
 
 qqunif(height_genes$pvalue,main="Height Enrichment Plot with Taillength")
-taillength_genes <- pheno_rats %>% filter(tail_length <= 0.05) %>% .[["gene_name"]] %>% na.omit()
+taillength_genes <- pheno_rats %>% filter(pvalue.tail_length <= 0.05) %>% .[["gene_name"]] %>% na.omit()
 qqpoints(height_genes %>% filter(gene_name %in% taillength_genes) %>% .[["pvalue"]],pch='+', col=3)
 
 ```
@@ -362,6 +378,7 @@ length(height_genes %>% filter(pvalue <= 0.05 && rcp >= 0.1) %>% .["gene_name"])
 length(obesity_genes  %>% filter(pvalue <= 0.05 && rcp >= 0.1) %>% .["gene_name"])
 length(BMI_genes  %>% filter(pvalue <= 0.05 && rcp >= 0.1) %>% .["gene_name"])
 ```
+
 
 
 

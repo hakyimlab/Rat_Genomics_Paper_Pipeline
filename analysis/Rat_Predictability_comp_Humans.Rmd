@@ -13,6 +13,7 @@ library(glue)
 library(ggpubr)
 library(grid)
 library(ggrepel)
+library(GGally)
 ```
 
 
@@ -102,9 +103,9 @@ Mgmt <- read_tsv("/Users/natashasanthanam/Downloads/model_perf_Mgmt.txt")
 Polr3k <- read_tsv("/Users/natashasanthanam/Downloads/model_perf_Polr3k.txt")
 Eno1 <- read_tsv("/Users/natashasanthanam/Downloads/model_perf_Eno1.txt")
 
-g1 <- ggplot(Mgmt, aes(pred, obs)) + geom_point() + ggtitle("Mgmt") + xlim(c(-2.5, 2.5)) + annotate("text", x = -1.5, y = 2, label = "r2 =  0.724", size = 3)
-g2 <- ggplot(Polr3k, aes(pred, obs)) + geom_point() + ggtitle("Polr3k") + xlim(c(-2.5, 2.5)) + annotate("text", x = -1.5, y = 2, label = "r2 =  0.796", size = 3)
-g3 <- ggplot(Eno1, aes(pred, obs)) + geom_point() + ggtitle("Enol1") + xlim(c(-2.5, 2.5)) + annotate("text", x = -1.5, y = 2, label = "r2 =  0.780", size = 3)
+g1 <- ggplot(Mgmt, aes(pred, obs)) + geom_point() + ggtitle("Mgmt") + annotate("text", x = 0.6, y = 2, label = "r2 =  0.724", size = 3) 
+g2 <- ggplot(Polr3k, aes(pred, obs)) + geom_point() + ggtitle("Polr3k") + annotate("text", x = -1.8, y = 2, label = "r2 =  0.796", size = 3)  
+g3 <- ggplot(Eno1, aes(pred, obs)) + geom_point() + ggtitle("Enol1") + annotate("text", x = -2.2, y = 2, label = "r2 =  0.780", size = 3)  
 
 fig = ggarrange(g1 + rremove("ylab") + rremove("xlab"), g2 + rremove("ylab") + rremove("xlab"), g3+ rremove("ylab") + rremove("xlab"), ncol = 3) 
 annotate_figure(fig, left = text_grob("Observed Expression", rot = 90), bottom = textGrob("Predicted Expression"))
@@ -200,4 +201,27 @@ lg_df %>% mutate(human_shuffled_h2 = sample(human_h2, nrow(lg_df), replace=F)) %
 # Plot R2 between rats and Humans with line for null 
 lg_df %>% mutate(human_shuffled_r2 = sample(human_r2, nrow(lg_df), replace=F)) %>% ggplot(aes(rat_r2, human_r2)) + geom_smooth() + geom_smooth(aes(rat_r2, human_shuffled_r2),col="dark gray")+theme_bw()+ xlab("Rat Predictability") + ylab("Human Predictability")
 ```
+
+Compare Predictability Between Tissues
+```{r compare predictability between rat tissue, eval=FALSE}
+filelist <- list.files("/Users/natashasanthanam//Box/imlab-data/data-Github/rat-genomic-analysis/sql/Natasha_re-generate_models", full.names = TRUE)
+
+pred_tis <- data.frame(gene = as.character())
+for(fila in filelist) {
+  sqlite.driver <- dbDriver("SQLite")
+  conn <- dbConnect(RSQLite::SQLite(), fila)
+  tis <- substr(fila, 105, 106)
+  extra <- dbGetQuery(conn, 'select * from extra') %>% select(c(gene, R2)) 
+  colnames(extra)[2] = tis
+  pred_tis <- full_join(pred_tis, extra, by = "gene") 
+  dbDisconnect(conn)
+}
+
+rownames(pred_tis) <- pred_tis$gene
+pred_tis <- pred_tis %>% select(-c(gene))
+pairs(pred_tis)
+
+ggpairs(pred_tis)     
+```
+
 

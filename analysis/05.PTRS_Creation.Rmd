@@ -52,7 +52,7 @@ pred_trait <- fn_generate_trait(pred_expr, weights)
 
 Compare all values across different models to actual BMI and Height
 ```{r read in pred trait}
-pred_height <- readRDS(dir %&% "rat_pred_height_w_Human_PTRS.RDS")
+pred_height <- readRDS(dir %&% "rat_pred_height_PTRS.RDS")
 pred_BMI <- readRDS(dir %&% "rat_pred_bmi_w_Human_PTRS.RDS")
 
 all_rats <- read_tsv(dir %&% "all_names.txt", col_names = TRUE)
