@@ -133,10 +133,10 @@ bmi_manhat <- tempo_manhatt %>% filter(metabolic_trait == "bmi_bodylength_w_tail
 
 height_manhat <- tempo_manhatt %>% filter(metabolic_trait == "bodylength_w_tail" | metabolic_trait == "bodylength_wo_tail" | metabolic_trait == "tail_length")
 
-manhattan(bmi_manhat, chr="chr", bp="start", snp="gene_name", p="pvalue", ylim = c(0, 13), suggestiveline = T, genomewideline = T, annotatePval = 5.767678e-07, main = "Manhattan plot of Significant BMI Associations")
+manhattan(bmi_manhat, chr="chr", bp="start", snp="gene_name", p="pvalue", ylim = c(0, 13), suggestiveline = T, genomewideline = T, annotatePval = 5.767678e-07)
 abline(h= 6.238999, col="blue")
 
-manhattan(height_manhat, chr="chr", bp="start", snp="gene_name", p="pvalue",  suggestiveline = T, genomewideline = T, annotatePval = 5.767678e-07, main = "Manhattan plot of Significant Body Length Associations")
+manhattan(height_manhat, chr="chr", bp="start", snp="gene_name", p="pvalue",  suggestiveline = T, genomewideline = T, annotatePval = 5.767678e-07)
 abline(h= 6.238999, col="blue")
 
 ```

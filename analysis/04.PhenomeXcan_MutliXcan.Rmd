@@ -275,8 +275,7 @@ parafat_genes <- pheno_rats %>% filter(pvalue.parafat <= 0.05) %>% .[["gene_name
 qqpoints(body_fat_genes %>% filter(gene_name %in% parafat_genes) %>% .[["pvalue"]],pch='+', col=3)
 
 qqunif(body_fat_genes$pvalue,main="Body Fat Enrichment Plot with Epifat")
-#epifat_genes <- pheno_rats %>% filter(epifat <= 0.05) %>% .[["gene_name"]] %>% na.omit()
-epifat_genes <- pheno_rats %>% filter(pvalue.epifat <= 1e-4) %>% .[["gene_name"]] %>% na.omit()
+epifat_genes <- pheno_rats %>% filter(pvalue.epifat <= 0.05) %>% .[["gene_name"]] %>% na.omit()
 qqpoints(body_fat_genes %>% filter(gene_name %in% epifat_genes) %>% .[["pvalue"]],pch='+', col=3)
 ```
 
@@ -296,13 +295,11 @@ qqpoints(BMI_genes %>% filter(gene_name %in% BMI_genes_rats) %>% .[["pvalue"]],p
 
 
 qqunif(height_genes$pvalue,main="Height Enrichment Plot")
-#height_genes_rats <- pheno_rats %>% filter(bodylength_w_tail <= 0.05) %>% .[["gene_name"]] %>% na.omit()
-height_genes_rats <- pheno_rats %>% filter(pvalue.bodylength_w_tail <= 1e-4) %>% .[["gene_name"]] %>% na.omit()
+height_genes_rats <- pheno_rats %>% filter(pvalue.bodylength_w_tail <= 0.05) %>% .[["gene_name"]] %>% na.omit()
 qqpoints(height_genes %>% filter(gene_name %in% height_genes_rats) %>% .[["pvalue"]],pch='+', col=3)
 
 qqunif(height_genes$pvalue,main="Height Enrichment Plot with Bodylength without tail")
-#height_genes_rats <- pheno_rats %>% filter(bodylength_wo_tail <= 0.05) %>% .[["gene_name"]] %>% na.omit()
-height_genes_rats <- pheno_rats %>% filter(pvalue.bodylength_wo_tail <= 1e-4) %>% .[["gene_name"]] %>% na.omit()
+height_genes_rats <- pheno_rats %>% filter(pvalue.bodylength_wo_tail <= 0.05) %>% .[["gene_name"]] %>% na.omit()
 qqpoints(height_genes %>% filter(gene_name %in% height_genes_rats) %>% .[["pvalue"]],pch='+', col=3)
 
 

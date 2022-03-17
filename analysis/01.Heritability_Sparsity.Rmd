@@ -4,7 +4,7 @@ author: "natasha.santhanam"
 date: "2022-02-07"
 output: workflowr::wflow_html
 editor_options:
-  chunk_output_type: console
+chunk_output_type: console
 ---
 
 ## Generate Heritability and Sparsity Estimates for all 5 tissues
@@ -233,7 +233,7 @@ The code to run badger is here
 source("./Rat_Genomics_Paper_Pipeline/analysis/Sparsity_Badger_Template.Rmd")
 ```
 
-GEMMA then generates a .hyp file for each phenotype or in our case gene of interest. The hyp file contains the posterior samples for the hyper-parameters (h, PVE, rho, PGE, pi and gamma) for every 10th iteration. For our purposes, we are interested in the h and PVE parameters. 
+GEMMA then generates a .hyp file for each phenotype or in our case gene of interest. The hyp file contains the posterior samples for the hyper-parameters (h, PVE, rho, PGE, pi and gamma) for every 10th iteration. For our purposes, we are interested in the PGE and PVE parameters. 
 
 To then calculate the point estimate and credible set for Proportion of Variance Explained (PVE) and Proportion of genetic variance explained by the sparse effects terms (PGE), we calculate the posterior probability for each gene for each tissue.
 

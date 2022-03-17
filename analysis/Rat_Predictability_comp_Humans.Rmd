@@ -103,11 +103,11 @@ Mgmt <- read_tsv("/Users/natashasanthanam/Downloads/model_perf_Mgmt.txt")
 Polr3k <- read_tsv("/Users/natashasanthanam/Downloads/model_perf_Polr3k.txt")
 Eno1 <- read_tsv("/Users/natashasanthanam/Downloads/model_perf_Eno1.txt")
 
-g1 <- ggplot(Mgmt, aes(pred, obs)) + geom_point() + ggtitle("Mgmt") + annotate("text", x = 0.6, y = 2, label = "r2 =  0.724", size = 3) 
-g2 <- ggplot(Polr3k, aes(pred, obs)) + geom_point() + ggtitle("Polr3k") + annotate("text", x = -1.8, y = 2, label = "r2 =  0.796", size = 3)  
-g3 <- ggplot(Eno1, aes(pred, obs)) + geom_point() + ggtitle("Enol1") + annotate("text", x = -2.2, y = 2, label = "r2 =  0.780", size = 3)  
+g1 <- ggplot(Mgmt, aes(pred, obs)) + geom_smooth(size = 1) + geom_point() + ggtitle("Mgmt") + annotate("text", x = 0.6, y = 2, label = "r2 =  0.724", size = 3) 
+g2 <- ggplot(Polr3k, aes(pred, obs)) + geom_smooth(size = 1) + geom_point() + ggtitle("Polr3k") + annotate("text", x = -1.8, y = 2, label = "r2 =  0.796", size = 3)  
+g3 <- ggplot(Eno1, aes(pred, obs)) + geom_smooth(size = 1) + geom_point() + ggtitle("Enol1") + annotate("text", x = -2.2, y = 2, label = "r2 =  0.780", size = 3)  
 
-fig = ggarrange(g1 + rremove("ylab") + rremove("xlab"), g2 + rremove("ylab") + rremove("xlab"), g3+ rremove("ylab") + rremove("xlab"), ncol = 3) 
+fig = ggarrange(g1 + rremove("ylab") + rremove("xlab"), g2 + rremove("ylab") + rremove("xlab"), g3+ rremove("ylab") + rremove("xlab"), ncol = 3)  
 annotate_figure(fig, left = text_grob("Observed Expression", rot = 90), bottom = textGrob("Predicted Expression"))
 ```
 
