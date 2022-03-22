@@ -123,20 +123,28 @@ tempo_df %>% group_by(metabolic_trait) %>% summarise(n = n())
 ```
 
 
+```{r find genes that overlap in Humans, eval=FALSE}
+human_height_genes <- readRDS("/Users/natashasanthanam/Downloads/MultiXcan_zscores_all_species.RDS") %>% mutate(rat_gene = orth.rats[match(human_height_genes$gene_name, orth.rats$external_gene_name), 4]$rnorvegicus_homolog_associated_gene_name) %>% filter(abs(Height) >= 3.719 & abs(zscore.bodylength_w_tail) >= 2.32)
+
+
+human_bmi_genes <- readRDS("/Users/natashasanthanam/Downloads/MultiXcan_zscores_all_species.RDS") %>% mutate(rat_gene = orth.rats[match(human_bmi_genes$gene_name, orth.rats$external_gene_name), 4]$rnorvegicus_homolog_associated_gene_name) %>% filter(abs(BMI) >= 3.719 & abs(zscore.bmi_bodylength_w_tail) >= 2.32)
+```
+
+
 ```{r plot prediXcan results as miami plot divided per trait}
-gene_annot <- readRDS("/Users/natashasanthanam/Github/rat-genomic-analysis/data/gene_annotation.RDS") %>% select(c("chr", "gene_id", "gene_name", "start", "end")) %>% rename(gene = gene_id)
+gene_annot <- readRDS("/Users/natashasanthanam/Github/rat-genomic-analysis/data/gene_annotation.RDS") %>% select(c("chr", "gene_id", "start", "end")) %>% rename(gene = gene_id)
 
 tempo_manhatt <- inner_join(gene_annot, full_df, by = "gene")
 tempo_manhatt$chr <- as.numeric(tempo_manhatt$chr)
 
-bmi_manhat <- tempo_manhatt %>% filter(metabolic_trait == "bmi_bodylength_w_tail" | metabolic_trait == "bmi_bodylength_wo_tail")
+bmi_manhat <- tempo_manhatt %>% filter(metabolic_trait == "bmi_bodylength_w_tail") %>% mutate(gene_name = orth.rats[match(bmi_manhat$gene, orth.rats$rnorvegicus_homolog_ensembl_gene), 4]$rnorvegicus_homolog_associated_gene_name)
 
-height_manhat <- tempo_manhatt %>% filter(metabolic_trait == "bodylength_w_tail" | metabolic_trait == "bodylength_wo_tail" | metabolic_trait == "tail_length")
+height_manhat <- tempo_manhatt %>% filter(metabolic_trait == "bodylength_w_tail") %>% mutate(gene_name = orth.rats[match(height_manhat$gene, orth.rats$rnorvegicus_homolog_ensembl_gene), 4]$rnorvegicus_homolog_associated_gene_name)
 
-manhattan(bmi_manhat, chr="chr", bp="start", snp="gene_name", p="pvalue", ylim = c(0, 13), suggestiveline = T, genomewideline = T, annotatePval = 5.767678e-07)
+manhattan(bmi_manhat, chr="chr", bp="start", snp="gene_name", p="pvalue", ylim = c(0, 13), suggestiveline = T, genomewideline = T, annotatePval = 5.767678e-07, highlight = human_bmi_genes$rat_gene)
 abline(h= 6.238999, col="blue")
 
-manhattan(height_manhat, chr="chr", bp="start", snp="gene_name", p="pvalue",  suggestiveline = T, genomewideline = T, annotatePval = 5.767678e-07)
+manhattan(height_manhat, chr="chr", bp="start", snp="gene_name", p="pvalue",  suggestiveline = T, genomewideline = T, annotatePval = 5.767678e-07, highlight = human_height_genes$rat_gene)
 abline(h= 6.238999, col="blue")
 
 ```

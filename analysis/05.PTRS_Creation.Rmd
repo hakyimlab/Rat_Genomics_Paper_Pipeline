@@ -68,11 +68,11 @@ pred_BMI <- pred_BMI[-na.omit(match(all_rats$ID, rownames(pred_BMI))), ]
 ```
 
 ```{r check number of genes in each model}
-weights_bmi <- readRDS("/Users/natashasanthanam/Downloads/weights.bmi.annot.RDS") 
-weights_height <-  readRDS("/Users/natashasanthanam/Downloads/weights.height.annot.RDS")  
+weights_bmi <- fread("/Users/natashasanthanam/Downloads/weights.bmi.tsv.gz") 
+weights_height <-  fread("/Users/natashasanthanam/Downloads/weights.height.tsv.gz")  
 
-n_genes_bmi = as.matrix(apply(weights_bmi, 2, function(x) sum(x != 0 )))
-n_genes_height = as.matrix(apply(weights_height, 2, function(x) sum(x != 0 )))
+n_genes_bmi = as.matrix(apply(weights_bmi[,2:ncol(weights_bmi)], 2, function(x) sum(x != 0 )))
+n_genes_height = as.matrix(apply(weights_height[,2:ncol(weights_height)], 2, function(x) sum(x != 0 )))
 ```
 
 
@@ -157,4 +157,15 @@ for(i in 1:ncol(tempo)){
   tail_length_df[i,5] <- confint(fit)[1] 
   tail_length_df[i,6] <- confint(fit)[2] 
 }
+```
+
+# Plot Results
+
+```{r plot pred height grapsh}
+ggplot(tail_length_df, aes(n_genes_in_model, estimate)) + geom_point(color = "magenta", position="jitter") +geom_line(color = "magenta") + xlab("Number of genes in each model") + ylab("Partial R2") + ggtitle("Performance vs Number of Genes in Each Model for Tail length in Rats vs Predicted Height")
+
+ggplot(bodylength_w_tail_df, aes(n_genes_in_model, estimate)) + geom_point() +geom_line() + xlab("Number of genes in each model") + ylab("Partial R2") + ggtitle("Performance vs Number of Genes in Each Model for Bodylength with Tail in Rats vs Predicted Height")
+```
+```{r plot pred bmi grapsh}
+ggplot(bmi_w_tail_df, aes(n_genes_in_model, estimate)) + geom_point(color = "cyan", position="jitter") +geom_line(color = "cyan") + xlab("Number of genes in each model") + ylab("Partial R2") + ggtitle("Performance vs Number of Genes in Each Model for BMI with Tail in Rats vs Predicted BMI")
 ```

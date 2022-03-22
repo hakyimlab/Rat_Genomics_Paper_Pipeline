@@ -276,7 +276,7 @@ qqpoints(body_fat_genes %>% filter(gene_name %in% parafat_genes) %>% .[["pvalue"
 
 qqunif(body_fat_genes$pvalue,main="Body Fat Enrichment Plot with Epifat")
 epifat_genes <- pheno_rats %>% filter(pvalue.epifat <= 0.05) %>% .[["gene_name"]] %>% na.omit()
-qqpoints(body_fat_genes %>% filter(gene_name %in% epifat_genes) %>% .[["pvalue"]],pch='+', col=3)
+qqpoints(body_fat_genes %>% filter(gene_name %in% epifat_genes) %>% .[["pvalue"]],pch='+', col="royalblue1")
 ```
 
 
@@ -285,18 +285,18 @@ qqunif(obesity_genes$pvalue,main="Obesity Enrichment Plot with Bodyweight")
 obesity_genes_rats <- pheno_rats %>% filter(pvalue.bodyweight <= 0.05) %>% .[["gene_name"]] %>% na.omit()
 qqpoints(obesity_genes %>% filter(gene_name %in% obesity_genes_rats) %>% .[["pvalue"]],pch='+', col=3)
 
-qqunif(BMI_genes$pvalue,main="BMI Enrichment Plot")
+qqunif(BMI_genes$pvalue, col= "maroon1")
 BMI_genes_rats <- pheno_rats %>% filter(pvalue.bmi_bodylength_wo_tail <= 0.05) %>% .[["gene_name"]] %>% na.omit()
-qqpoints(BMI_genes %>% filter(gene_name %in% BMI_genes_rats) %>% .[["pvalue"]],pch='+', col=3)
+qqpoints(BMI_genes %>% filter(gene_name %in% BMI_genes_rats) %>% .[["pvalue"]],pch='+', col = "dodgerblue")
 
-qqunif(BMI_genes$pvalue,main="BMI Enrichment Plot")
+qqunif(BMI_genes$pvalue,main="BMI Enrichment Plot", col = "maroon1")
 BMI_genes_rats <- pheno_rats %>% filter(pvalue.bmi_bodylength_w_tail <= 0.05) %>% .[["gene_name"]] %>% na.omit()
-qqpoints(BMI_genes %>% filter(gene_name %in% BMI_genes_rats) %>% .[["pvalue"]],pch='+', col=3)
+qqpoints(BMI_genes %>% filter(gene_name %in% BMI_genes_rats) %>% .[["pvalue"]],pch='+', col="dodgerblue")
 
 
-qqunif(height_genes$pvalue,main="Height Enrichment Plot")
+qqunif(height_genes$pvalue, col = "maroon1")
 height_genes_rats <- pheno_rats %>% filter(pvalue.bodylength_w_tail <= 0.05) %>% .[["gene_name"]] %>% na.omit()
-qqpoints(height_genes %>% filter(gene_name %in% height_genes_rats) %>% .[["pvalue"]],pch='+', col=3)
+qqpoints(height_genes %>% filter(gene_name %in% height_genes_rats) %>% .[["pvalue"]],pch='+', col="dodgerblue")
 
 qqunif(height_genes$pvalue,main="Height Enrichment Plot with Bodylength without tail")
 height_genes_rats <- pheno_rats %>% filter(pvalue.bodylength_wo_tail <= 0.05) %>% .[["gene_name"]] %>% na.omit()
@@ -305,7 +305,7 @@ qqpoints(height_genes %>% filter(gene_name %in% height_genes_rats) %>% .[["pvalu
 
 qqunif(height_genes$pvalue,main="Height Enrichment Plot with Taillength")
 taillength_genes <- pheno_rats %>% filter(pvalue.tail_length <= 0.05) %>% .[["gene_name"]] %>% na.omit()
-qqpoints(height_genes %>% filter(gene_name %in% taillength_genes) %>% .[["pvalue"]],pch='+', col=3)
+qqpoints(height_genes %>% filter(gene_name %in% taillength_genes) %>% .[["pvalue"]],pch='+', col=3) + coord_fixed(ratio = 1)
 
 ```
 

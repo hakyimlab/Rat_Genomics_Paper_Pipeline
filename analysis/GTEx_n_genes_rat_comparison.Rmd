@@ -58,6 +58,8 @@ gex_transpose <- gex %>% select(-c(IID))
 
 gex_transpose = invnorm(gex_transpose)
 rownames(gex_transpose) = gex$IID
+
+write.table(gex_transpose, file = '/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/comp_to_GTEx/expression/gexWB.csv', sep = ",", col.names = TRUE, row.names = FALSE)
 ```
 
 
@@ -95,8 +97,9 @@ python /gpfs/data/im-lab/nas40t2/natasha/rat_genomics/rat-genomic-analysis/scrip
 
 ```{bash run PEER factor, eval=FALSE}
 # Now we are performing PEER factor analysis on each tissue choosing 7 factors
-/gpfs/data/im-lab/nas40t2/yanyul/softwares/peer/bin/peertool -f Uterus_inv_norm_expression.csv -n 7 -o peer_GTEx --has_header
+peertool -f expression/"gexWB.csv" -n 7 -o peer_GTEx --has_header
 ```
+
 
 Read in Peer Factors
 ```{r read in peer, eval=FALSE}
@@ -227,12 +230,16 @@ python /gpfs/data/im-lab/nas40t2/natasha/rat_genomics/rat-genomic-analysis/scrip
 
 ```{bash run model script, eval=FALSE}
 # Running the model training script for each tissue/chromosome pair
-Rscript /gpfs/data/im-lab/nas40t2/natasha/rat_genomics/rat-genomic-analysis/scripts/create_model.R $TISSUE $chr .5 1000000
-
-
 for i in {1..20}
 do
-qsub -v TISSUE=$tissue,chr=$i GTEx_single_nested_EN.pbs  
+Rscript /gpfs/data/im-lab/nas40t2/natasha/rat_genomics/rat-genomic-analysis/scripts/create_model.R $TISSUE $i $alpha 1000000
+done
+
+
+a=0.1
+for i in {1..1}
+do
+qsub -v chr=$i,alpha=$a GTEx_single_nested_EN.pbs  
 done
 ```
 

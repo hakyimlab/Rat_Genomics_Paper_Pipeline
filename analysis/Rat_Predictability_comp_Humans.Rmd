@@ -103,9 +103,10 @@ Mgmt <- read_tsv("/Users/natashasanthanam/Downloads/model_perf_Mgmt.txt")
 Polr3k <- read_tsv("/Users/natashasanthanam/Downloads/model_perf_Polr3k.txt")
 Eno1 <- read_tsv("/Users/natashasanthanam/Downloads/model_perf_Eno1.txt")
 
-g1 <- ggplot(Mgmt, aes(pred, obs)) + geom_smooth(size = 1) + geom_point() + ggtitle("Mgmt") + annotate("text", x = 0.6, y = 2, label = "r2 =  0.724", size = 3) 
-g2 <- ggplot(Polr3k, aes(pred, obs)) + geom_smooth(size = 1) + geom_point() + ggtitle("Polr3k") + annotate("text", x = -1.8, y = 2, label = "r2 =  0.796", size = 3)  
-g3 <- ggplot(Eno1, aes(pred, obs)) + geom_smooth(size = 1) + geom_point() + ggtitle("Enol1") + annotate("text", x = -2.2, y = 2, label = "r2 =  0.780", size = 3)  
+g1 <- ggplot(Mgmt, aes(pred, obs)) + geom_smooth(size = 1, col = "midnightblue") + geom_point() + ggtitle("Mgmt") + annotate("text", x = 0.4, y = 2.5, label = "r2 =  0.724", size = 5) + theme(aspect.ratio=1) + xlab("Predicted expression") + ylab("Observed Expression")
+
+g2 <- ggplot(Polr3k, aes(pred, obs)) + geom_smooth(size = 1) + geom_point() + ggtitle("Polr3k") + annotate("text", x = -1.8, y = 2, label = "r2 =  0.796", size = 3)  + theme(aspect.ratio=1)
+g3 <- ggplot(Eno1, aes(pred, obs)) + geom_smooth(size = 1) + geom_point() + ggtitle("Enol1") + annotate("text", x = -2.2, y = 2, label = "r2 =  0.780", size = 3)  + theme(aspect.ratio=1)
 
 fig = ggarrange(g1 + rremove("ylab") + rremove("xlab"), g2 + rremove("ylab") + rremove("xlab"), g3+ rremove("ylab") + rremove("xlab"), ncol = 3)  
 annotate_figure(fig, left = text_grob("Observed Expression", rot = 90), bottom = textGrob("Predicted Expression"))
@@ -199,7 +200,7 @@ colnames(lg_df) = c("ensembl_id", "rat_ensembl_id", "genename", "rat_r2", "human
 lg_df %>% mutate(human_shuffled_h2 = sample(human_h2, nrow(lg_df), replace=F)) %>% ggplot(aes(rat_h2, human_h2)) + geom_smooth(col = "darkgreen") + geom_smooth(aes(rat_h2, human_shuffled_h2),col="dark gray")+theme_bw()+ xlab("Rat Heritability") + ylab("Human Heritability")
 
 # Plot R2 between rats and Humans with line for null 
-lg_df %>% mutate(human_shuffled_r2 = sample(human_r2, nrow(lg_df), replace=F)) %>% ggplot(aes(rat_r2, human_r2)) + geom_smooth() + geom_smooth(aes(rat_r2, human_shuffled_r2),col="dark gray")+theme_bw()+ xlab("Rat Predictability") + ylab("Human Predictability")
+lg_df %>% mutate(human_shuffled_r2 = sample(human_r2, nrow(lg_df), replace=F)) %>% ggplot(aes(rat_r2, human_r2)) + geom_smooth(col = "midnightblue") + xlab("Rat Predictability") + ylab("Human Predictability") + annotate("text", x = 0.02, y = 0.2, label = "r =  0.061", size = 4) 
 ```
 
 Compare Predictability Between Tissues
@@ -221,7 +222,20 @@ rownames(pred_tis) <- pred_tis$gene
 pred_tis <- pred_tis %>% select(-c(gene))
 pairs(pred_tis)
 
-ggpairs(pred_tis)     
+ggpairs(pred_tis)
+
+d1 <- cor(pred_tis %>% na.omit)
+d1[lower.tri(d1)] <- NA
+d1 <- d1 %>%
+  as.data.frame %>%
+  rownames_to_column(var = 'var1') %>%
+  gather(var2, value, -var1) %>% rename(r = value) %>%
+
+ggplot(d1, aes(x = var1, y = var2, fill = r)) +
+ geom_tile(color = "white")+
+ scale_fill_gradient(low="dodgerblue", high="dodgerblue4") +
+  theme_minimal() +
+  theme(panel.grid = element_blank()) + ylab("") + xlab("") + theme(axis.text = element_text(size = 20))
 ```
 
 
