@@ -140,14 +140,100 @@ tempo_manhatt$chr <- as.numeric(tempo_manhatt$chr)
 bmi_manhat <- tempo_manhatt %>% filter(metabolic_trait == "bmi_bodylength_w_tail") %>% mutate(gene_name = orth.rats[match(bmi_manhat$gene, orth.rats$rnorvegicus_homolog_ensembl_gene), 4]$rnorvegicus_homolog_associated_gene_name)
 
 height_manhat <- tempo_manhatt %>% filter(metabolic_trait == "bodylength_w_tail") %>% mutate(gene_name = orth.rats[match(height_manhat$gene, orth.rats$rnorvegicus_homolog_ensembl_gene), 4]$rnorvegicus_homolog_associated_gene_name)
+```
 
-manhattan(bmi_manhat, chr="chr", bp="start", snp="gene_name", p="pvalue", ylim = c(0, 13), suggestiveline = T, genomewideline = T, annotatePval = 5.767678e-07, highlight = human_bmi_genes$rat_gene)
-abline(h= 6.238999, col="blue")
+```{r plot manhattan for BMI}
+data_cum <- bmi_manhat %>% 
+  group_by(chr) %>% 
+  summarise(max_bp = as.numeric(max(start))) %>% 
+  mutate(bp_add = lag(cumsum(max_bp), default = 0)) %>% 
+  select(chr, bp_add)
 
-manhattan(height_manhat, chr="chr", bp="start", snp="gene_name", p="pvalue",  suggestiveline = T, genomewideline = T, annotatePval = 5.767678e-07, highlight = human_height_genes$rat_gene)
-abline(h= 6.238999, col="blue")
+gwas_data <- bmi_manhat %>% 
+  inner_join(data_cum, by = "chr") %>% 
+  mutate(bp_cum = start + bp_add)
+
+
+axis_set <- gwas_data %>% 
+  group_by(chr) %>% 
+  summarize(center = mean(bp_cum))
+
+ylim <- gwas_data %>% 
+  filter(pvalue == min(pvalue)) %>% 
+  mutate(ylim = abs(floor(log10(pvalue))) + 2) %>% 
+  pull(ylim)
+
+sig <- 5.767678e-07
+
+manhplot <- ggplot(gwas_data, aes(x = bp_cum, y = -log10(pvalue), 
+                                  color = as_factor(chr), size = -log10(pvalue))) +
+  geom_hline(yintercept = -log10(sig), color = "grey40", linetype = "dashed") + 
+  geom_hline(yintercept = -log10(0.0001), color = "red", linetype = "dashed") + 
+  geom_point(alpha = 0.75, shape = ifelse((gwas_data$zscore >= 4.863456), 17, ifelse(gwas_data$zscore <= -4.863456, 25, 19)), fill = "dodgerblue") +
+  geom_text_repel(aes(label=ifelse(pvalue <=  sig, gene_name, ""))) + 
+  scale_x_continuous(label = axis_set$chr, breaks = axis_set$center) +
+  scale_y_continuous(expand = c(0,0), limits = c(0, ylim)) +
+  scale_color_manual(values = rep(c("#276FBF", "#183059"), unique(length(axis_set$chr)))) +
+  scale_size_continuous(range = c(0.5,3)) +
+  labs(x = NULL, 
+       y = expression(-log[10](italic(p)))) + 
+  theme_minimal() +
+  theme( 
+    legend.position = "none",
+    panel.border = element_blank(),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    axis.text.x = element_text(angle = 60, size = 8, vjust = 0.5)
+  )
+```
+
+
+```{r plot manhattan for height}
+data_cum <- height_manhat %>% 
+  group_by(chr) %>% 
+  summarise(max_bp = as.numeric(max(start))) %>% 
+  mutate(bp_add = lag(cumsum(max_bp), default = 0)) %>% 
+  select(chr, bp_add)
+
+gwas_data <- height_manhat %>% 
+  inner_join(data_cum, by = "chr") %>% 
+  mutate(bp_cum = start + bp_add)
+
+
+axis_set <- gwas_data %>% 
+  group_by(chr) %>% 
+  summarize(center = mean(bp_cum))
+
+ylim <- gwas_data %>% 
+  filter(pvalue == min(pvalue)) %>% 
+  mutate(ylim = abs(floor(log10(pvalue))) + 2) %>% 
+  pull(ylim)
+
+sig <- 5.767678e-07
+
+manhplot <- ggplot(gwas_data, aes(x = bp_cum, y = -log10(pvalue), 
+                                  color = as_factor(chr), size = -log10(pvalue))) +
+  geom_hline(yintercept = -log10(sig), color = "grey40", linetype = "dashed") + 
+  geom_hline(yintercept = -log10(0.0001), color = "red", linetype = "dashed") + 
+  geom_point(alpha = 0.75, shape = ifelse((gwas_data$zscore >= 4.863456), 17, ifelse(gwas_data$zscore <= -4.863456, 25, 19)), fill = "dodgerblue") +
+  geom_text_repel(aes(label=ifelse(pvalue <=  sig, gene_name, ""))) + 
+  scale_x_continuous(label = axis_set$chr, breaks = axis_set$center) +
+  scale_y_continuous(expand = c(0,0), limits = c(0, ylim)) +
+  scale_color_manual(values = rep(c("#276FBF", "#183059"), unique(length(axis_set$chr)))) +
+  scale_size_continuous(range = c(0.5,3)) +
+  labs(x = NULL, 
+       y = expression(-log[10](italic(p)))) + 
+  theme_minimal() +
+  theme( 
+    legend.position = "none",
+    panel.border = element_blank(),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    axis.text.x = element_text(angle = 60, size = 8, vjust = 0.5)
+  )
 
 ```
+
 
 
 ## Run MultiXcan

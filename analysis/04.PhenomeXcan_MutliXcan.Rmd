@@ -259,10 +259,6 @@ qqunif =
 
 ```{r enrichment for fasting glucose}
 devtools::source_gist("38431b74c6c0bf90c12f")
-qqunif(glucose_genes$pvalue,main="Fasting Glucose Enrichment Plot")
-fasting_glucose_rat_genes <- pheno_rats %>% filter(pvalue.fasting_glucose <= 0.05) %>% .[["gene_name"]] %>% na.omit()
-
-qqpoints(glucose_genes %>% filter(gene_name %in% fasting_glucose_rat_genes) %>% .[["pvalue"]],pch='+', col=3)
 ```
 
 ```{r enrichment for Bodyfat}
