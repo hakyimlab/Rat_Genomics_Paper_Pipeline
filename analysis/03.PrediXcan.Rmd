@@ -77,16 +77,25 @@ python $METAXCAN/Predict.py \
 --throw
 ```
 
+```{r filter pred expression for no overlap of rats, eval=FALSE}
+pred_expr <- read_tsv("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/prediXcan/metabolic_traits/rat_metabolic_" %&% args[1] %&% "__predict.txt", col_names = TRUE)
+
+all_rats <- read_tsv(PHENO %&% "all_names.txt", col_names = TRUE)
+pred_expr <- pred_expr %>% filter(!(FID  %in% all_rats$ID))
+```
+
+
 ```{r run associations, eval=FALSE}
 #run asssociation in prediXcan
 PHENO = "/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/Box_files/"
-RESULTS = "/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/prediXcan/metabolic_traits/"
+RESULTS = "/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/prediXcan/metabolic_traits/associations/"
 
-pheno <- read_csv(PHENO %&% "processed_obesity_rat_Palmer_phenotypes.csv", col_names = TRUE)
+pheno <- read_csv(PHENO %&% "processed_obesity_rat_Palmer_phenotypes.csv", col_names = TRUE) %>% filter(!(rat_rfid  %in% all_rats$ID))
+write_tsv(pheno, PHENO %&% "processed_obesity_rat_Palmer_phenotypes_target_set.tsv", col_names = TRUE)
 
 for(i in 2:length(colnames(pheno))){
 trait <- colnames(pheno)[i]
-runLOC <- "python3 " %&% METAXCAN %&% "/PrediXcanAssociation.py " %&% "--expression_file " %&% RESULTS %&% "rat_metabolic_" %&% args[1] %&% "__predict.txt --input_phenos_file " %&% PHENO %&% "processed_obesity_rat_Palmer_phenotypes.tsv " %&% "--input_phenos_column " %&% trait %&%  " --output " %&% RESULTS %&% "associations/" %&% args[1] %&% "__association_" %&% trait %&% ".txt --verbosity 9 --throw"
+runLOC <- "python3 " %&% METAXCAN %&% "/PrediXcanAssociation.py " %&% "--expression_file " %&%  "/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/prediXcan/metabolic_traits/rat_metabolic_" %&% "Ac" %&% "__predict.txt --input_phenos_file " %&% PHENO %&% "processed_obesity_rat_Palmer_phenotypes_target_set.tsv " %&% "--input_phenos_column " %&% trait %&%  " --output " %&% RESULTS %&% "associations/" %&% "Ac" %&% "__association_" %&% trait %&% ".txt --verbosity 9 --throw"
 system(runLOC)
 }
 ```
@@ -101,21 +110,21 @@ qsub -v tissue=$tis metabolic_assoc_all_tissues.pbs
 Format and Plot PrediXcan Results
 
 ```{r format prediXcan assocs, eval=FALSE}
-results.dir <- "/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/prediXcan/associations/"
-filelist <- list.files(results.dir, pattern = "mice_Palmer__association", full.names = TRUE)
+results.dir <- "/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/prediXcan/metabolic_traits/associations"
+filelist <- list.files(results.dir, pattern = "Ac__association_", full.names = TRUE)
 full_df <- data.frame()
 
 for(fila in filelist) {
   assoc_fila <- read_tsv(fila, col_names = TRUE)
-  pheno_id <- substr(fila, 97, (str_length(fila) - 5))
+  pheno_id <- substr(fila, 104, (str_length(fila) - 4))
   tempo <- cbind(assoc_fila, metabolic_trait=pheno_id) %>% select(-c(status))
   full_df <- rbind(full_df, tempo)
 } 
-#full_df <- read_tsv("/Users/natashasanthanam/Github/rat-genomic-analysis/data/rat_metabolic_traits_Ac_full_assocs.txt", col_names = TRUE)
+#full_df <- read_tsv("/Users/natashasanthanam/Github/rat-genomic-analysis/data/rat_metabolic_traits_Ac_full_assocs.txt", col_names = TRUE) %>% filter(n_samples <= 3407)
 
-tempo_df <- full_df %>% filter(pvalue < 5.836349e-06)
+tempo_df <- full_df %>% filter(pvalue < 5.243344e-07)
 
-#589 sig genes
+#275 sig genes
 tempo_df %>% group_by(gene) %>% summarise(n = n())
 
 #all 10 traits
@@ -169,11 +178,11 @@ manhplot <- ggplot(gwas_data, aes(x = bp_cum, y = -log10(pvalue),
                                   color = as_factor(chr), size = -log10(pvalue))) +
   geom_hline(yintercept = -log10(sig), color = "grey40", linetype = "dashed") + 
   geom_hline(yintercept = -log10(0.0001), color = "red", linetype = "dashed") + 
-  geom_point(alpha = 0.75, shape = ifelse((gwas_data$zscore >= 4.863456), 17, ifelse(gwas_data$zscore <= -4.863456, 25, 19)), fill = "dodgerblue") +
-  geom_text_repel(aes(label=ifelse(pvalue <=  sig, gene_name, ""))) + 
+  geom_point(alpha = 0.75, shape = ifelse((gwas_data$zscore >= 4.863456), 17, ifelse(gwas_data$zscore <= -4.863456, 25, 19)), fill = "dodgerblue4") +
+  geom_label_repel(aes(label=ifelse(pvalue <=  sig, gene_name, "")), size = 6) + 
+  ylim(c(0,8)) + 
   scale_x_continuous(label = axis_set$chr, breaks = axis_set$center) +
-  scale_y_continuous(expand = c(0,0), limits = c(0, ylim)) +
-  scale_color_manual(values = rep(c("#276FBF", "#183059"), unique(length(axis_set$chr)))) +
+  scale_color_manual(values = rep(c("dodgerblue4", "midnightblue"), unique(length(axis_set$chr)))) +
   scale_size_continuous(range = c(0.5,3)) +
   labs(x = NULL, 
        y = expression(-log[10](italic(p)))) + 
@@ -183,8 +192,9 @@ manhplot <- ggplot(gwas_data, aes(x = bp_cum, y = -log10(pvalue),
     panel.border = element_blank(),
     panel.grid.major.x = element_blank(),
     panel.grid.minor.x = element_blank(),
-    axis.text.x = element_text(angle = 60, size = 8, vjust = 0.5)
-  )
+    axis.text.x = element_text(angle = 90, size = 12), 
+    axis.text.y = element_text( size = 12,  vjust = 0), 
+    axis.title = element_text(size = 20))
 ```
 
 
@@ -215,11 +225,11 @@ manhplot <- ggplot(gwas_data, aes(x = bp_cum, y = -log10(pvalue),
                                   color = as_factor(chr), size = -log10(pvalue))) +
   geom_hline(yintercept = -log10(sig), color = "grey40", linetype = "dashed") + 
   geom_hline(yintercept = -log10(0.0001), color = "red", linetype = "dashed") + 
-  geom_point(alpha = 0.75, shape = ifelse((gwas_data$zscore >= 4.863456), 17, ifelse(gwas_data$zscore <= -4.863456, 25, 19)), fill = "dodgerblue") +
-  geom_text_repel(aes(label=ifelse(pvalue <=  sig, gene_name, ""))) + 
+  geom_point(alpha = 0.75, shape = ifelse((gwas_data$zscore >= 4.863456), 17, ifelse(gwas_data$zscore <= -4.863456, 25, 19)), fill = "dodgerblue4") +
+  geom_label_repel(aes(label=ifelse(pvalue <=  sig, gene_name, "")), size = 6) + 
+  ylim(c(0,10)) + 
   scale_x_continuous(label = axis_set$chr, breaks = axis_set$center) +
-  scale_y_continuous(expand = c(0,0), limits = c(0, ylim)) +
-  scale_color_manual(values = rep(c("#276FBF", "#183059"), unique(length(axis_set$chr)))) +
+  scale_color_manual(values = rep(c("dodgerblue4", "midnightblue"), unique(length(axis_set$chr)))) +
   scale_size_continuous(range = c(0.5,3)) +
   labs(x = NULL, 
        y = expression(-log[10](italic(p)))) + 
@@ -229,8 +239,9 @@ manhplot <- ggplot(gwas_data, aes(x = bp_cum, y = -log10(pvalue),
     panel.border = element_blank(),
     panel.grid.major.x = element_blank(),
     panel.grid.minor.x = element_blank(),
-    axis.text.x = element_text(angle = 60, size = 8, vjust = 0.5)
-  )
+    axis.text.x = element_text(angle = 90, size = 12), 
+    axis.text.y = element_text( size = 12,  vjust = 0), 
+    axis.title = element_text(size = 20))
 
 ```
 

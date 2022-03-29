@@ -564,6 +564,10 @@ dbDisconnect(conn)
 Next we create the ordered plot for heritability for Ac. We use PVE as h2, the proportion of variance in phenotypes explained by typed genotypes. 
 ```{r}
 PVE_Ac <- read_tsv(poly_dir %&% "Ac_PVE_estimates.txt", col_names = FALSE)
+```
+
+
+```{r}
 colnames(PVE_Ac) <- c("gene", "point_estimate", "credible_set_1", "credible_set_2")
 PVE_Ac <- inner_join(PVE_Ac, extra, by = "gene")
 
@@ -577,10 +581,11 @@ plt_1 <- (ggplot(data = A_df_Ac, aes(x = index))
           + labs(x = 'Genes Sorted by Proportion of Variance Explained (PVE)',
                  y = 'PVE')
            + ylim(-0.5,1)
-           + annotate("text", x = 1250, y = 0.9, label = "Mean h2 =  0.089", size = 3.5)
-           + annotate("text", x = 1250, y = 0.8, label = "Mean r2 =  0.085", size = 3.5)) 
+           + annotate("text", x = 1250, y = 0.9, label = "Mean h2 =  0.089", size = 6)
+           + annotate("text", x = 1250, y = 0.8, label = "Mean r2 =  0.085", size = 6)) 
 plt_1
 ```
+
 
 # Generate Analagous Plot in Humans
 
@@ -589,16 +594,16 @@ Get R2 and H2 from Heather's Models for Brain
 sqlite3 genarch.db
 .headers on
 .mode csv
-.output human_h2.csv
-select gene, ensid, en_r2 ,h2,h2_ci from results where tissue = "DGN-WB";
+.output human_PVE.csv
+select gene, ensid, en_r2 ,pve,pve_CI from results where tissue = "DGN-WB";
 .quit
 ```
 
 ```{r plot human h2}
-human_h2 <- read_csv("/Users/natashasanthanam/Github/rat-genomic-analysis/data/human_h2.csv") %>% rename(point_estimate = h2) 
+human_h2 <- read_csv("/Users/natashasanthanam/Github/rat-genomic-analysis/data/human_PVE.csv") %>% rename(point_estimate = pve) 
 
-human_h2$credible_set_1 = as.numeric(ifelse(substr(human_h2$h2_ci ,1,1) == "-", paste("-", sapply(strsplit(human_h2$h2_ci, "-"), `[`, 2), sep = ""), sapply(strsplit(human_h2$h2_ci, "-"), `[`, 1)))
-human_h2$credible_set_2 = as.numeric(ifelse(substr(human_h2$h2_ci ,1,1) == "-", sapply(strsplit(human_h2$h2_ci, "-"), `[`, 3), sapply(strsplit(human_h2$h2_ci, "-"), `[`, 2)))
+human_h2$credible_set_1 = as.numeric(ifelse(substr(human_h2$pve_CI ,1,1) == "-", paste("-", sapply(strsplit(human_h2$pve_CI, "-"), `[`, 2), sep = ""), sapply(strsplit(human_h2$pve_CI, "-"), `[`, 1)))
+human_h2$credible_set_2 = as.numeric(ifelse(substr(human_h2$pve_CI ,1,1) == "-", sapply(strsplit(human_h2$pve_CI, "-"), `[`, 3), sapply(strsplit(human_h2$pve_CI, "-"), `[`, 2)))
 
 hum_df <- load_pve(human_h2)
 plt_2  <- (ggplot(data = hum_df, aes(x = index))
@@ -610,8 +615,8 @@ plt_2  <- (ggplot(data = hum_df, aes(x = index))
           + labs(x = 'Genes Sorted by Proportion of Variance Explained (PVE)',
                  y = 'PVE')
            + ylim(-0.5,1)
-           + annotate("text", x = 1250, y = 0.9, label = "Mean h2 =  0.126", size = 3.5)
-           + annotate("text", x = 1250, y = 0.8, label = "Mean r2 =  0.119", size = 3.5)) 
+           + annotate("text", x = 1590, y = 0.9, label = "Mean h2 =  0.129", size = 6)
+           + annotate("text", x = 1550, y = 0.8, label = "Mean r2 =  0.119", size = 6)) 
 plt_2
 ```
 

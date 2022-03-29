@@ -74,7 +74,7 @@ rownames(gene_annotation) = gtf$gene_id
 
 Format snp annotation
 ```{r format snp annotation, eval=FALSE}
-phyMap <- read_tsv(geno.dir %&% "GTEx_comp.bim", col_names = FALSE)  %>% mutate(varID = X2) %>% select(c(X2, X1, X4, X5, X6, varID))
+phyMap <- read_tsv(geno.dir %&% "genos/GTEx_comp.bim", col_names = FALSE)  %>% mutate(varID = X2) %>% select(c(X2, X1, X4, X5, X6, varID))
 
 phyMap$rsid = phyMap$varID
 colnames(phyMap) = c("snp", "chr", "pos", "refAllele", "effectAllele", "varID", "rsid")  
@@ -230,14 +230,12 @@ python /gpfs/data/im-lab/nas40t2/natasha/rat_genomics/rat-genomic-analysis/scrip
 
 ```{bash run model script, eval=FALSE}
 # Running the model training script for each tissue/chromosome pair
+Rscript --vanilla /gpfs/data/im-lab/nas40t2/natasha/rat_genomics/comp_to_GTEx/GTEx_TW_CV_elasticNet.R  $chr $alpha 
+
+
+
+a=0.01
 for i in {1..20}
-do
-Rscript /gpfs/data/im-lab/nas40t2/natasha/rat_genomics/rat-genomic-analysis/scripts/create_model.R $TISSUE $i $alpha 1000000
-done
-
-
-a=0.1
-for i in {1..1}
 do
 qsub -v chr=$i,alpha=$a GTEx_single_nested_EN.pbs  
 done
@@ -246,29 +244,38 @@ done
 
 ```{bash concatenate all results, eval=FALSE}
 # Concatenating all of the results files for each tissue
-bash /gpfs/data/im-lab/nas40t2/natasha/rat_genomics/rat-genomic-analysis/scripts/make_all_results.sh  'Kidney_Cortex' './Results/all_Results_Ovary' 0.5 '1KG_snps'
+bash /gpfs/data/im-lab/nas40t2/natasha/rat_genomics/rat-genomic-analysis/scripts/make_all_results.sh  'Whole_Blood' '/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/comp_to_GTEx/Results/all_Results_Whole_Blood_0.01' 0.01 '1KG_snps'
 
-bash /gpfs/data/im-lab/nas40t2/natasha/rat_genomics/rat-genomic-analysis/scripts/make_all_betas.sh 'Kidney_Cortex' './Results/all_betas_Kidney_Cortex' 0.5 '1KG_snps'
 ```
 
 # Compare number of genes predicted in GTEx to those in Rats
 
-Create Number of Genes for all GTEx tissues
-```{r create GTEx n genes matrix, eval=FALSE}
-gtex_dir <- "/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/comp_to_GTEx/Results/"
-filelist <- list.files(gtex_dir, pattern = "all_Results", full.names = TRUE)
-GWAS_n_genes <- data.frame(tis= as.character(), n.genes = numeric(), species = as.character())
+Now we have predictability for all parameters of alpha. We can now iterate through all alphas and create the long data format. We also only select for genes that have an average R2 > 0.3 and subsample 20 genes. 
 
-for(fila in filelist) {
-  i = match(fila, filelist)
-  tempo <- read_tsv(fila, col_names = TRUE)
-  tempo <- tempo %>% filter(R2 >= 0)
-  GWAS_n_genes[i,2] <- n_distinct(tempo$gene) 
-  GWAS_n_genes[i,1] <- substr(fila, 82, str_length(fila) )
-  GWAS_n_genes[i,3] <- "Human"
+```{r create GTEx n genes matrix, eval=FALSE}
+filelist <- list.files("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/comp_to_GTEx/Results/chr_Results", pattern = "working_TW_", full.names = TRUE)
+
+tempo <- read_tsv(filelist[1]) %>% filter(R2 <= 1) %>% select(c(gene, cor)) %>% distinct(gene, .keep_all = TRUE)
+tempo$cor = as.numeric(tempo$cor)
+colnames(tempo)[2] = paste("cor", "0.01", sep="_")
+
+ 
+for (k in 2:(length(filelist))){
+ df <- read_tsv(filelist[k], col_names = TRUE) %>% distinct(gene, .keep_all = TRUE)
+ alpha <- substr(filelist[k], 135, str_length(filelist[k]) - 8)
+ df <- as.data.frame(df) %>% select(c(gene, cor)) %>% filter(cor <= 1)
+ df$cor = as.numeric(df$cor)
+ colnames(df)[2] <- paste("cor", alpha, sep="_")
+ tempo <- inner_join(tempo, df, by = c("gene"))
 }
 
-GWAS_n_genes <- GWAS_n_genes %>% mutate(n.samples = c(114, 73, 167, 129)) 
+
+
+#tempo <- read_tsv("/Users/natashasanthanam/Downloads/GTEx_Whole_Blood_sparsity_all_parameters.txt", col_names = TRUE)
+tempo$Average = rowMeans(subset(tempo, select = -c(gene)))
+
+tempo <- tempo %>% filter(Average > 0.05)
+tempo <- tempo[sample(nrow(tempo), 20), ]
 ```
 
 Create Number of Genes for Rat Tissues
@@ -299,3 +306,14 @@ aes(n.samples, n.genes), method=lm) + geom_label_repel( label = total_genes$tis,
 
 ggsave("/Users/natashasanthanam/Downloads/GTEx_rats_n_genes.pdf")
 ```
+
+
+# Plot Sparsity for GTEx
+
+```{r}
+data_long <- tempo %>%  pivot_longer(!gene, names_to = "value", values_to = "count") 
+data_long$value = as.numeric(substr(data_long$value, 5, str_length(data_long$value)))
+   
+p1
+```
+

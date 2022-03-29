@@ -281,9 +281,9 @@ qqunif(obesity_genes$pvalue,main="Obesity Enrichment Plot with Bodyweight")
 obesity_genes_rats <- pheno_rats %>% filter(pvalue.bodyweight <= 0.05) %>% .[["gene_name"]] %>% na.omit()
 qqpoints(obesity_genes %>% filter(gene_name %in% obesity_genes_rats) %>% .[["pvalue"]],pch='+', col=3)
 
-qqunif(BMI_genes$pvalue, col= "maroon1")
+qqunif(BMI_genes$pvalue, col= "maroon1" )
 BMI_genes_rats <- pheno_rats %>% filter(pvalue.bmi_bodylength_wo_tail <= 0.05) %>% .[["gene_name"]] %>% na.omit()
-qqpoints(BMI_genes %>% filter(gene_name %in% BMI_genes_rats) %>% .[["pvalue"]],pch='+', col = "dodgerblue")
+qqpoints(BMI_genes %>% filter(gene_name %in% BMI_genes_rats) %>% .[["pvalue"]],pch='+', col = "dodgerblue") 
 
 qqunif(BMI_genes$pvalue,main="BMI Enrichment Plot", col = "maroon1")
 BMI_genes_rats <- pheno_rats %>% filter(pvalue.bmi_bodylength_w_tail <= 0.05) %>% .[["gene_name"]] %>% na.omit()
