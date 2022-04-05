@@ -247,3 +247,5 @@ p3= ggplot(data = GTEx_ordered, aes(x=row, y=column, fill=cor)) +
 p3
 ```
 
+ 
+

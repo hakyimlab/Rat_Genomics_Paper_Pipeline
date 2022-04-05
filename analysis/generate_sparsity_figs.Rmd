@@ -26,31 +26,40 @@ done
 ```
 
 
-Now we have predictability for all parameters of alpha. We can now iterate through all alphas and create the long data format. We also only select for genes that have an average R2 > 0.3 and subsample 20 genes. 
+Now we have predictability for all parameters of alpha. We can now iterate through all alphas and create the long data format. We also only select for genes that have an average cor > 0.3 and subsample 20 genes. 
 ```{r create long format for genes, eval=FALSE}
-tempo <- read_tsv(dir %&% "working_TW_Ac_exp_10-foldCV_elasticNet_alpha1_1KG_snps.txt", col_names = TRUE) %>% select(c(gene, cor))
 ldf <- list() # creates a list
 listtsv <- dir(path = dir, pattern = "working_TW_Ac_exp_10-foldCV_elasticNet_alpha", full.names = TRUE) # creates the list of all the tsv files in the directory
+tempo <- read_tsv(listtsv[1], col_names = TRUE) 
+tempo$R2 = tempo$R2*sign(tempo$cor)
+tempo <- tempo %>% select(c(gene, R2))
+colnames(tempo)[2] = "0.1"
 
-for (k in 1:(length(listtsv)-1)){
+for (k in 2:length(listtsv)){
  ldf[[k]] <- read_tsv(listtsv[k], col_names = TRUE)
- fila <- as.data.frame(ldf[[k]]) %>% select(c(gene, cor)) 
+ alpha <- substr(listtsv[k], 107, str_length(listtsv[k]) - 13)
+ fila <- as.data.frame(ldf[[k]]) 
+ fila$R2 = fila$R2*sign(fila$cor)
+ fila <- fila %>% select(c(gene, R2)) 
+ colnames(fila)[2] = alpha
  tempo <- inner_join(tempo, fila, by = "gene")
+ 
 }
 
-colnames(tempo) <- c("gene", "1", "0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "0")
 
 tempo$Average = rowMeans(subset(tempo, select = -c(gene)))
-tempo <- tempo %>% filter(Average > 0.3)
+tempo <- tempo %>% filter(Average > 0.09)
 tempo <- tempo[sample(nrow(tempo), 20), ]
 ```
 
 Plot results of r for all parameers of alpha
 ```{r plot all resuls, eval=FALSE}
 tempo <- read_tsv(dir %&% "rat_elasticNet_cor.txt", col_names = TRUE)
-data_long <- tempo %>%  pivot_longer(!gene, names_to = "value", values_to = "count")
+tempo <- read_tsv("/Users/natashasanthanam/Downloads/rat_Ac_elasticNet_R2.txt", col_names = TRUE)
+
+data_long <- tempo %>% select(-c(Average))  %>%   pivot_longer(!gene, names_to = "value", values_to = "count")
    
-p1 <-  ggplot(data_long, aes(x = as.numeric(value), y = count)) + geom_smooth(show_guide = FALSE, se=T, size = .5, col = "dodgerblue2")  +  xlab(expression(paste("Elastic net mixing parameter (",alpha, ")"))) + ylab(expression(paste("10-fold cross-validated R")))
+p1 <-  ggplot(data_long, aes(x = as.numeric(value), y = count)) + geom_smooth(show_guide = FALSE, se=T, size = .5, col = "dodgerblue2")  +  xlab(expression(paste("Elastic net mixing parameter (",alpha, ")"))) + ylab(expression(paste("10-fold cross-validated R2")))
 
 p2 = ggplot(tempo, aes(x = `0`, y = `0.5`)) + geom_hex(bins = 50)   +
       geom_abline(slope = 1, intercept = 0, color = "darkgrey", size = 0.8) +

@@ -32,7 +32,7 @@ weights <- read_tsv(data.dir %&% "PTRS_weights/weight_files/elastic_net_alpha_0.
 weights$gene_id <- sapply(strsplit(weights$gene_id, "\\."), `[`, 1)
 
 # Here we use predicted expression not predicted and make sure to use human ensembl id gene name
-pred_expr <- fread(data.dir %&% "prediXcan/metabolic_traits/rat_metabolic_Ac__predict.txt") %>% select(-c(FID))
+pred_expr <- read_tsv(data.dir %&% "prediXcan/metabolic_traits/rat_metabolic_Ac__predict.txt") %>% select(-c(FID))
 
 #filter only for genes that have a human ortholog
 pred_expr <- pred_expr %>% select(c(IID, intersect(colnames(pred_expr), orth.rats$rnorvegicus_homolog_ensembl_gene) ))
@@ -42,6 +42,7 @@ pred_expr <- pred_expr %>% select(c(IID, intersect(colnames(pred_expr), orth.rat
 colnames(pred_expr)[2:ncol(pred_expr)] <- orth.rats[match(colnames(pred_expr)[2:ncol(pred_expr)], orth.rats$rnorvegicus_homolog_ensembl_gene), 1] %>% .[["ensembl_gene_id"]]
   
 rownames(weights) <- weights$gene_id
+weights <- weights %>% rename(gene_name = gene_id)
 ```
 
 ```{r generate predicted trait, eval=FALSE}
@@ -81,7 +82,7 @@ BMI with predicted BMI
 bmi_with_tail <- pheno %>% dplyr::select(c(rat_rfid, bmi_bodylength_w_tail)) %>% na.omit()
 tempo <- pred_BMI[na.omit(match(bmi_with_tail$rat_rfid, rownames(pred_BMI))), ]
 
-bmi_w_tail_df <- data.frame(estimate = numeric(), pvalue = numeric(), model = character(), n_genes_in_model = numeric(), conf.int.min = numeric(), conf.int.max = numeric())
+bmi_w_tail_df <- data.frame(R2 = numeric(), pvalue = numeric(), model = character(), n_genes_in_model = numeric(), conf.int.min = numeric(), conf.int.max = numeric())
 for(i in 1:ncol(tempo)){
   fit = lm(bmi_with_tail$bmi_bodylength_w_tail ~ tempo[,i])
   bmi_w_tail_df[i,1] <- summary(fit)$r.squared
@@ -92,14 +93,18 @@ for(i in 1:ncol(tempo)){
   bmi_w_tail_df[i,6] <- confint(fit)[2]
 }
 
+bmi_w_tail_cor <- data.frame(cor = numeric(), pvalue = numeric(), model = character(), n_genes_in_model = numeric(), conf.int.min = numeric(), conf.int.max = numeric())
 for(i in 1:ncol(tempo)){
-  bmi_w_tail_df[i,1] <- cor.test(bmi_with_tail$bmi_bodylength_w_tail, tempo[,i])$estimate
-  bmi_w_tail_df[i,2] <- cor.test(bmi_with_tail$bmi_bodylength_w_tail, tempo[,i])$p.value
-  bmi_w_tail_df[i,3] <- paste("model", i, sep = "_")
-  bmi_w_tail_df[i,4] <- n_genes_bmi[i,1]
-  bmi_w_tail_df[i,5] <- cor.test(bmi_with_tail$bmi_bodylength_w_tail, tempo[,i])$conf.int[1]
-  bmi_w_tail_df[i,6] <- cor.test(bmi_with_tail$bmi_bodylength_w_tail, tempo[,i])$conf.int[2]
+  bmi_w_tail_cor[i,1] <- cor.test(bmi_with_tail$bmi_bodylength_w_tail, tempo[,i])$estimate
+  bmi_w_tail_cor[i,2] <- cor.test(bmi_with_tail$bmi_bodylength_w_tail, tempo[,i])$p.value
+  bmi_w_tail_cor[i,3] <- paste("model", i, sep = "_")
+  bmi_w_tail_cor[i,4] <- n_genes_bmi[i,1]
+  bmi_w_tail_cor[i,5] <- cor.test(bmi_with_tail$bmi_bodylength_w_tail, tempo[,i])$conf.int[1]
+  bmi_w_tail_cor[i,6] <- cor.test(bmi_with_tail$bmi_bodylength_w_tail, tempo[,i])$conf.int[2]
 }
+
+total_bmi_df <- inner_join(bmi_w_tail_cor, bmi_w_tail_df, by = "model")
+total_bmi_df <- total_bmi_df %>% select(c(model, n_genes_in_model.x, cor, R2, pvalue.x, conf.int.min.x, conf.int.max.x ))
 ```
 
 Bodylength with Predicted Height
@@ -108,7 +113,7 @@ Bodylength with Predicted Height
 bodylength_w_tail <- pheno %>% dplyr::select(c(rat_rfid, bodylength_w_tail)) %>% na.omit()
 tempo <- pred_height[na.omit(match(bodylength_w_tail$rat_rfid, rownames(pred_height))), ]
 
-bodylength_w_tail_df <- data.frame(estimate = numeric(), pvalue = numeric(), model = character(), n_genes_in_model = numeric(), conf.int.min = numeric(), conf.int.max = numeric())
+bodylength_w_tail_df <- data.frame(R2 = numeric(), pvalue = numeric(), model = character(), n_genes_in_model = numeric(), conf.int.min = numeric(), conf.int.max = numeric())
 for(i in 1:ncol(tempo)){
   fit = lm(bodylength_w_tail$bodylength_w_tail ~ tempo[,i])
   bodylength_w_tail_df[i,1] <- summary(fit)$r.squared
@@ -119,15 +124,19 @@ for(i in 1:ncol(tempo)){
   bodylength_w_tail_df[i,6] <- confint(fit)[2] 
 }
 
+bodylength_w_tail_cor <- data.frame(cor = numeric(), pvalue = numeric(), model = character(), n_genes_in_model = numeric(), conf.int.min = numeric(), conf.int.max = numeric())
 for(i in 1:ncol(tempo)){
   fit = lm(bodylength_w_tail$bodylength_w_tail ~ tempo[,i])
-  bodylength_w_tail_df[i,1] <- cor.test(bodylength_w_tail$bodylength_w_tail, tempo[,i])$estimate
-  bodylength_w_tail_df[i,2] <- cor.test(bodylength_w_tail$bodylength_w_tail, tempo[,i])$p.value
-  bodylength_w_tail_df[i,3] <- paste("model", i, sep = "_")
-  bodylength_w_tail_df[i,4]<- n_genes_height[i,1]
-  bodylength_w_tail_df[i,5] <- cor.test(bodylength_w_tail$bodylength_w_tail, tempo[,i])$conf.int[1]
-  bodylength_w_tail_df[i,6] <- cor.test(bodylength_w_tail$bodylength_w_tail, tempo[,i])$conf.int[2]
+  bodylength_w_tail_cor[i,1] <- cor.test(bodylength_w_tail$bodylength_w_tail, tempo[,i])$estimate
+  bodylength_w_tail_cor[i,2] <- cor.test(bodylength_w_tail$bodylength_w_tail, tempo[,i])$p.value
+  bodylength_w_tail_cor[i,3] <- paste("model", i, sep = "_")
+  bodylength_w_tail_cor[i,4]<- n_genes_height[i,1]
+  bodylength_w_tail_cor[i,5] <- cor.test(bodylength_w_tail$bodylength_w_tail, tempo[,i])$conf.int[1]
+  bodylength_w_tail_cor[i,6] <- cor.test(bodylength_w_tail$bodylength_w_tail, tempo[,i])$conf.int[2]
 }
+
+total_height_df <- inner_join(bodylength_w_tail_cor, bodylength_w_tail_df, by = "model")
+total_height_df <- total_height_df %>% select(c(model, n_genes_in_model.x, cor, R2, pvalue.x, conf.int.min.x, conf.int.max.x ))
 ```
 
 # Plot Results

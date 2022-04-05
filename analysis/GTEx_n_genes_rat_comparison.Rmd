@@ -255,28 +255,57 @@ Now we have predictability for all parameters of alpha. We can now iterate throu
 ```{r create GTEx n genes matrix, eval=FALSE}
 filelist <- list.files("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/comp_to_GTEx/Results/chr_Results", pattern = "working_TW_", full.names = TRUE)
 
-tempo <- read_tsv(filelist[1]) %>% filter(R2 <= 1) %>% select(c(gene, cor)) %>% distinct(gene, .keep_all = TRUE)
+tempo <- read_tsv(filelist[1]) %>% filter(R2 <= 1) %>% select(c(gene, cor, R2)) %>% distinct(gene, .keep_all = TRUE)
 tempo$cor = as.numeric(tempo$cor)
+tempo$R2 = tempo$R2*sign(tempo$cor)
 colnames(tempo)[2] = paste("cor", "0.01", sep="_")
+colnames(tempo)[3] = paste("R2", "0.01", sep="_")
 
  
 for (k in 2:(length(filelist))){
  df <- read_tsv(filelist[k], col_names = TRUE) %>% distinct(gene, .keep_all = TRUE)
  alpha <- substr(filelist[k], 135, str_length(filelist[k]) - 8)
- df <- as.data.frame(df) %>% select(c(gene, cor)) %>% filter(cor <= 1)
+ df <- as.data.frame(df) %>% select(c(gene, cor, R2)) %>% filter(R2 <= 1)
  df$cor = as.numeric(df$cor)
+ df$R2 = as.numeric(df$R2)*sign(df$cor)
  colnames(df)[2] <- paste("cor", alpha, sep="_")
+ colnames(df)[3] <- paste("R2", alpha, sep="_")
  tempo <- inner_join(tempo, df, by = c("gene"))
 }
 
 
 
 #tempo <- read_tsv("/Users/natashasanthanam/Downloads/GTEx_Whole_Blood_sparsity_all_parameters.txt", col_names = TRUE)
-tempo$Average = rowMeans(subset(tempo, select = -c(gene)))
+tempo_cor_df <- tempo %>% select(c(gene, starts_with("cor"))) %>% select(-c(cor_0.01))
+tempo_R2_df <- tempo %>% select(c(gene, starts_with("R"))) %>% select(-c(R_0.01))
 
-tempo <- tempo %>% filter(Average > 0.05)
-tempo <- tempo[sample(nrow(tempo), 20), ]
+tempo_R2_df$Average = rowMeans(subset(tempo_R2_df, select = -c(gene)))
+tempo_R2_df <- tempo_R2_df %>% filter(Average >= 0.09)
+
+tempo_R2_df <- tempo_R2_df[sample(nrow(tempo_R2_df), 20), ]
+tempo_cor_df <- tempo_cor_df[sample(nrow(tempo_cor_df), 20), ]
 ```
+
+
+
+# Plot Sparsity for GTEx
+
+```{r}
+data_long <- tempo_R2_df %>% select(-c(Average)) %>%  pivot_longer(!gene, names_to = "value", values_to = "count") 
+data_long$value = as.numeric(substr(data_long$value, 4, str_length(data_long$value)))
+
+p1 <-  ggplot(data_long, aes(x = as.numeric(value), y = count)) + geom_smooth(method = "loess", span = 2, show_guide = FALSE, se=T, size = .5, col = "maroon1")  +  xlab(expression(paste("Elastic net mixing parameter (",alpha, ")"))) + ylab(expression(paste("10-fold cross-validated R2")))
+
+p1
+
+cor_long <- tempo_cor_df  %>%  pivot_longer(!gene, names_to = "value", values_to = "count") 
+cor_long$value = as.numeric(substr(cor_long$value, 5, str_length(cor_long$value)))
+
+p2 <-  ggplot(cor_long, aes(x = as.numeric(value), y = count)) + geom_smooth(show_guide = FALSE, se=T, size = .5, col = "maroon1")  +  xlab(expression(paste("Elastic net mixing parameter (",alpha, ")"))) + ylab(expression(paste("10-fold cross-validated cor")))
+
+```
+
+
 
 Create Number of Genes for Rat Tissues
 ```{r create rat tissue matrix, eval=FALSE}
@@ -306,14 +335,3 @@ aes(n.samples, n.genes), method=lm) + geom_label_repel( label = total_genes$tis,
 
 ggsave("/Users/natashasanthanam/Downloads/GTEx_rats_n_genes.pdf")
 ```
-
-
-# Plot Sparsity for GTEx
-
-```{r}
-data_long <- tempo %>%  pivot_longer(!gene, names_to = "value", values_to = "count") 
-data_long$value = as.numeric(substr(data_long$value, 5, str_length(data_long$value)))
-   
-p1
-```
-

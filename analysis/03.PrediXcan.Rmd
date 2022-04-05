@@ -35,7 +35,8 @@ for(fila in filelist) {
 
 
 ```{r change colnames of Ac prediction model, eval=FALSE}
-filename <- MODEL %&% "Ac_output_db.db"
+data.dir <- "/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/rat-genomic-analysis/"
+filename <-  data.dir %&% "Results/sql/Ac_output_db.db"
   sqlite.driver <- dbDriver("SQLite")
   conn <- dbConnect(RSQLite::SQLite(), filename)
   extra <- dbGetQuery(conn, 'select * from extra')
@@ -46,7 +47,7 @@ colnames(extra) <- c("gene", "genename", "n.snps.in.model", "pred.perf.R2", "pre
 
 
 ```{r create database connection, eval=FALSE}
-model_db = MODEL %&% "Ac_annot_prediXcan_db.db"
+model_db = MODEL %&% "Ac_prediXcan_db.db"
 conn <- dbConnect(RSQLite::SQLite(), model_db)
 dbWriteTable(conn, "weights", weights)
 dbWriteTable(conn, "extra", extra)
@@ -58,6 +59,15 @@ dbGetQuery(conn, 'SELECT * FROM extra') %>% head
 dbDisconnect(conn)
 ```
 
+```{r filter samples for no overlap of rats, eval=FALSE}
+samples <- read_tsv(GENO %&% "samples_Rat_metab_phenos_file", col_names = FALSE)
+all_rats <- read_tsv(PHENO %&% "all_names.txt", col_names = TRUE)
+samples <- samples %>% filter(!(X1  %in% all_rats$ID))
+write_tsv(samples, GENO %&% "samples_Rat_metab_abrv_phenos_file", col_names = FALSE)
+```
+
+
+
 # Do for all 5 tissues 
 ```{bash run prediXcan, eval = FALSE}
 #run prediXcan
@@ -67,7 +77,7 @@ export GENO=/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/Box_files/rat_genotyp
 export MODEL=/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/models
 
 python $METAXCAN/Predict.py \
---model_db_path $MODEL/Ac_annot_prediXcan_db.db \
+--model_db_path $MODEL/Ac_prediXcan_db.db \
 --text_genotypes  \
  $GENO/chr*.round2_impute2_3473.txt  \
 --on_the_fly_mapping METADATA "{}_{}_{}_{}" \
@@ -77,7 +87,7 @@ python $METAXCAN/Predict.py \
 --throw
 ```
 
-```{r filter pred expression for no overlap of rats, eval=FALSE}
+```{r }
 pred_expr <- read_tsv("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/prediXcan/metabolic_traits/rat_metabolic_" %&% args[1] %&% "__predict.txt", col_names = TRUE)
 
 all_rats <- read_tsv(PHENO %&% "all_names.txt", col_names = TRUE)
@@ -120,23 +130,26 @@ for(fila in filelist) {
   tempo <- cbind(assoc_fila, metabolic_trait=pheno_id) %>% select(-c(status))
   full_df <- rbind(full_df, tempo)
 } 
-#full_df <- read_tsv("/Users/natashasanthanam/Github/rat-genomic-analysis/data/rat_metabolic_traits_Ac_full_assocs.txt", col_names = TRUE) %>% filter(n_samples <= 3407)
+#full_df <- read_tsv("/Users/natashasanthanam/Github/rat-genomic-analysis/data/rat_metabolic_traits_Ac_full_assocs.txt", col_names = TRUE)
 
-tempo_df <- full_df %>% filter(pvalue < 5.243344e-07)
+tempo_df <- full_df %>% filter(pvalue < 5.767678e-06)
 
-#275 sig genes
+#565 sig genes
 tempo_df %>% group_by(gene) %>% summarise(n = n())
 
-#all 10 traits
+#all 11 traits
 tempo_df %>% group_by(metabolic_trait) %>% summarise(n = n())
 ```
 
 
 ```{r find genes that overlap in Humans, eval=FALSE}
-human_height_genes <- readRDS("/Users/natashasanthanam/Downloads/MultiXcan_zscores_all_species.RDS") %>% mutate(rat_gene = orth.rats[match(human_height_genes$gene_name, orth.rats$external_gene_name), 4]$rnorvegicus_homolog_associated_gene_name) %>% filter(abs(Height) >= 3.719 & abs(zscore.bodylength_w_tail) >= 2.32)
+human_height_genes <- read_tsv("/Users/natashasanthanam/Downloads/Human_prediXcan_all_traits.txt", col_names = TRUE)
+human_height_genes <- human_height_genes %>% mutate(rat_gene = orth.rats[match(human_height_genes$gene_name, orth.rats$external_gene_name), 4]$rnorvegicus_homolog_associated_gene_name) %>% filter(abs(zscore_Height) >= 3.719)
 
 
-human_bmi_genes <- readRDS("/Users/natashasanthanam/Downloads/MultiXcan_zscores_all_species.RDS") %>% mutate(rat_gene = orth.rats[match(human_bmi_genes$gene_name, orth.rats$external_gene_name), 4]$rnorvegicus_homolog_associated_gene_name) %>% filter(abs(BMI) >= 3.719 & abs(zscore.bmi_bodylength_w_tail) >= 2.32)
+human_bmi_genes <- read_tsv("/Users/natashasanthanam/Downloads/Human_prediXcan_all_traits.txt", col_names = TRUE) 
+colnames(human_bmi_genes)[3] = "zscore_BMI"
+human_bmi_genes <- human_bmi_genes %>% mutate(rat_gene = orth.rats[match(human_bmi_genes$gene_name, orth.rats$external_gene_name), 4]$rnorvegicus_homolog_associated_gene_name) %>% filter(abs(zscore_BMI) >= 3.719 )
 ```
 
 
@@ -146,9 +159,11 @@ gene_annot <- readRDS("/Users/natashasanthanam/Github/rat-genomic-analysis/data/
 tempo_manhatt <- inner_join(gene_annot, full_df, by = "gene")
 tempo_manhatt$chr <- as.numeric(tempo_manhatt$chr)
 
-bmi_manhat <- tempo_manhatt %>% filter(metabolic_trait == "bmi_bodylength_w_tail") %>% mutate(gene_name = orth.rats[match(bmi_manhat$gene, orth.rats$rnorvegicus_homolog_ensembl_gene), 4]$rnorvegicus_homolog_associated_gene_name)
+bmi_manhat <- tempo_manhatt %>% filter(metabolic_trait == "bmi_bodylength_w_tail") 
+bmi_manhat <- bmi_manhat %>% mutate(gene_name = orth.rats[match(bmi_manhat$gene, orth.rats$rnorvegicus_homolog_ensembl_gene), 4]$rnorvegicus_homolog_associated_gene_name)
 
-height_manhat <- tempo_manhatt %>% filter(metabolic_trait == "bodylength_w_tail") %>% mutate(gene_name = orth.rats[match(height_manhat$gene, orth.rats$rnorvegicus_homolog_ensembl_gene), 4]$rnorvegicus_homolog_associated_gene_name)
+height_manhat <- tempo_manhatt %>% filter(metabolic_trait == "bodylength_w_tail") 
+height_manhat <- height_manhat %>% mutate(gene_name = orth.rats[match(height_manhat$gene, orth.rats$rnorvegicus_homolog_ensembl_gene), 4]$rnorvegicus_homolog_associated_gene_name)
 ```
 
 ```{r plot manhattan for BMI}
@@ -172,9 +187,9 @@ ylim <- gwas_data %>%
   mutate(ylim = abs(floor(log10(pvalue))) + 2) %>% 
   pull(ylim)
 
-sig <- 5.767678e-07
+sig <-  0.05/(8549)
 
-manhplot <- ggplot(gwas_data, aes(x = bp_cum, y = -log10(pvalue), 
+bmi_manhplot <- ggplot(gwas_data, aes(x = bp_cum, y = -log10(pvalue), 
                                   color = as_factor(chr), size = -log10(pvalue))) +
   geom_hline(yintercept = -log10(sig), color = "grey40", linetype = "dashed") + 
   geom_hline(yintercept = -log10(0.0001), color = "red", linetype = "dashed") + 
@@ -219,9 +234,9 @@ ylim <- gwas_data %>%
   mutate(ylim = abs(floor(log10(pvalue))) + 2) %>% 
   pull(ylim)
 
-sig <- 5.767678e-07
+sig <-   0.05/(8549)
 
-manhplot <- ggplot(gwas_data, aes(x = bp_cum, y = -log10(pvalue), 
+height_manhplot <- ggplot(gwas_data, aes(x = bp_cum, y = -log10(pvalue), 
                                   color = as_factor(chr), size = -log10(pvalue))) +
   geom_hline(yintercept = -log10(sig), color = "grey40", linetype = "dashed") + 
   geom_hline(yintercept = -log10(0.0001), color = "red", linetype = "dashed") + 
@@ -273,11 +288,11 @@ pheno <- pheno %>% rename(ID = rat_rfid) %>% filter(!ID %in% all_names$ID)
 
 Next have to remove overlap rats predicted expression as well
 ```{r  generate expr data, eval=FALSE}
-filelist <- list.files("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/prediXcan", pattern = "__predict.txt", full.names = TRUE)
+filelist <- list.files("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/prediXcan/metabolic_traits/", pattern = "__predict.txt", full.names = TRUE)
 
 for(fila in filelist) {
   tempo <- fread(fila, header=TRUE)
-  name <- substr(fila, 72,73)
+  name <- substr(fila, 90,91)
   tempo <- tempo %>% filter(!FID %in% all_names$ID)
   tempo <- tempo[match(pheno$ID, tempo$FID),]
   write_tsv(tempo, "/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/MultiXcan/expr/" %&% name %&% ".txt")
@@ -308,10 +323,10 @@ echo "MultiXcan running on epifat"
 
 python /gpfs/data/im-lab/nas40t2/natasha/GTEX_Analysis/MetaXcan/software/MulTiXcan.py \
         --expression_folder /gpfs/data/im-lab/nas40t2/natasha/rat_genomics/MultiXcan/expr \
-        --expression_pattern "(.*)_expression_transformed.txt" \
+        --expression_pattern "(.*).txt" \
         --input_phenos_file /gpfs/data/im-lab/nas40t2/natasha/rat_genomics/MultiXcan/metabolic_trait_phenos_MultiXcan.txt \
-        --input_phenos_column fasting_glucose \
-        --output /gpfs/data/im-lab/nas40t2/natasha/rat_genomics/MultiXcan/results/fasting_glucose_predict_assoc.txt \
+        --input_phenos_column bmi_bodylength_wo_tail \
+        --output /gpfs/data/im-lab/nas40t2/natasha/rat_genomics/MultiXcan/results/bmi_bodylength_wo_tail_predict_assoc.txt \
         --pc_condition_number 10 \
         --mode linear \
         --verbosity 8 \
@@ -327,7 +342,7 @@ For each trait find most significant pvalue and take sign of that effect
 ```{r find mean Z, eval=FALSE}
 pheno <- read_csv("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/Box_files/processed_obesity_rat_Palmer_phenotypes.csv", col_names=TRUE)
 
-for(i in 9:ncol(pheno)) {
+for(i in 2:ncol(pheno)) {
   trait <- colnames(pheno)[i]
   filelist <- list.files(data.dir %&% "prediXcan/metabolic_traits/associations/", pattern = trait %&% ".txt", full.names = TRUE)
   tempo <- data.frame(gene= as.character())

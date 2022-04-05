@@ -112,6 +112,46 @@ fig = ggarrange(g1 + rremove("ylab") + rremove("xlab"), g2 + rremove("ylab") + r
 annotate_figure(fig, left = text_grob("Observed Expression", rot = 90), bottom = textGrob("Predicted Expression"))
 ```
 
+Calculate Predicted vs Observed Expression for Mgmt in Humans using GTEx NA predictDB with Geuvadis genotypes (hg38) as well
+```{bash calculate pred expr with models, eval=FALSE}
+conda activate imlabtools 
+export METAXCAN=/gpfs/data/im-lab/nas40t2/natasha/GTEX_Analysis/MetaXcan/software
+export GENO=/gpfs/data/im-lab/nas40t2/Data/1000G/vcf_hg38/geuvadis
+export MODEL=/gpfs/data/im-lab/nas40t2/Data/PredictDB/GTEx_v8/models_v1/eqtl/elastic_net_models
+export DATA=/gpfs/data/im-lab/nas40t2/natasha/GTEX_Analysis/predixcan
+
+python3 $METAXCAN/Predict.py \
+--model_db_path $MODEL/en_Brain_Nucleus_accumbens_basal_ganglia.db  \
+--model_db_snp_key varID \
+--vcf_genotypes $GENO/ALL.chr*.shapeit2_integrated_v1a.GRCh38.20181129.phased.vcf.gz \
+--vcf_mode genotyped \
+--on_the_fly_mapping METADATA "{}_{}_{}_{}_b38" \
+--prediction_output 1000G_NAcc2__predict.txt  \
+--prediction_summary_output 1000G_NAcc2__summary.txt  \
+--verbosity 9 \
+--throw
+```
+
+AC068282.3 r2= 0.7268118
+```{r check correlation between predicted and observed expression, eval=FALSE}
+pred_expr <- fread("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/comp_to_GTEx/1000G_NAcc2__predict.txt")
+obs_expr <- fread("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/comp_to_GTEx/GD462.GeneQuantRPKM.50FN.samplename.resk10.txt.gz")
+
+obs_expr <- obs_expr %>% select(-c(Chr, Gene_Symbol, Coord)) %>% pivot_longer(!TargetID, names_to = "FID", values_to = "count") %>% pivot_wider(names_from = TargetID, values_from = count)
+
+AC0_pred <- as.data.frame(pred_expr[, c("FID", "ENSG00000236682.1")])
+AC0_obs <- as.data.frame(obs_expr[,  c("FID", "ENSG00000236682.1")]) 
+
+AC0_pred <- AC0_pred[match(AC0_obs$FID, AC0_pred$FID),]
+AC0_obs <- AC0_obs[match(AC0_pred$FID, AC0_obs$FID ), ]
+
+
+AC0 <- inner_join(AC0_pred, AC0_obs, by = "FID")
+colnames(AC0) = c("FID", "pred", "obs")
+
+AC0_GTEx <- read_tsv("/Users/natashasanthanam/Downloads/GTEx_AC0_results.txt")
+g4 <- ggplot(AC0_GTEx, aes(pred, obs)) + geom_point() + annotate("text", x = -0.4, y = 1.1, label = "AC068282.3", size = 10, fontface =2) + annotate("text", x = -0.55, y = 1, label = "r2 =  0.727", size = 8) + theme(aspect.ratio=1) + xlab("Predicted expression") + ylab("Observed Expression")
+```
 
 # Correlation of predicted R2 between tissues in GTEx
 
@@ -241,3 +281,47 @@ ggplot(data = d1, aes(x = var1, y = var2, fill = r)) +
 ```
 
 
+Calculate R2 across GTEx Tissues
+
+```{r iterate GTEx models, eval=FALSE}
+model.dir <- "/gpfs/data/im-lab/nas40t2/Data/PredictDB/GTEx_v8/models_v1/eqtl/elastic_net_models/"
+
+filelist <- c("en_Brain_Amygdala.db", "en_Brain_Cerebellum.db", "en_Brain_Nucleus_accumbens_basal_ganglia.db", "en_Brain_Substantia_nigra.db")
+
+pred_tis <- data.frame(gene = as.character())
+for(fila in filelist) {
+  filename <- model.dir %&% fila
+  tis <- substr(fila, 4, str_length(fila)-3)
+  sqlite.driver <- dbDriver("SQLite")
+  conn <- dbConnect(RSQLite::SQLite(), filename)
+  extra <- dbGetQuery(conn, 'select * from extra')
+  extra <- extra %>% select(c(gene, pred.perf.R2)) 
+  colnames(extra)[2] = tis
+  pred_tis <- full_join(pred_tis, extra, by = "gene") 
+  dbDisconnect(conn)
+}
+```
+
+
+```{r plot R2 across GTEx tissues}
+#pred_tis <- read_tsv(dir %&% "pred_R2_betw_GTEx_brain_tissues.txt", col_names = TRUE)
+rownames(pred_tis) <- pred_tis$gene
+pred_tis <- pred_tis %>% select(-c(gene))
+colnames(pred_tis) = c("Amygdala", "Cerebellum", "Nucleus accumbens", "Substantia nigra")
+
+
+d2 <- cor(pred_tis %>% na.omit)
+d2[lower.tri(d2)] <- NA
+d2 <- d2 %>%
+  as.data.frame %>%
+  rownames_to_column(var = 'var1') %>%
+  gather(var2, value, -var1) 
+d2 <- d2 %>% dplyr::rename(r = value) %>% na.omit()
+
+ggplot(data = d2, aes(x = var1, y = var2, fill = r)) +
+ geom_tile(color = "white")+
+ scale_fill_gradient(low="maroon1", high="maroon4") +
+  theme_minimal() +
+  theme(panel.grid = element_blank()) + ylab("") + xlab("") + theme(axis.text = element_text(size = 15), axis.text.x = element_text(angle = 90, hjust = 1)) + theme(aspect.ratio=1)   
+
+```
