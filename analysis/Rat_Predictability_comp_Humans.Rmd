@@ -83,33 +83,31 @@ Polr3k_pred$FID = as.character(Polr3k_pred$FID)
 Polr3k <- inner_join(Polr3k_pred, Polr3k_obs, by = "FID")
 ```
 
-Eno1
-
+Dhfr
 ```{r Eno1, eval=FALSE}
-Eno1_pred <- as.data.frame(pred_expr[, c("FID", "ENSRNOG00000017895")])
-Eno1_obs <- as.data.frame(obs_expr[,  c("FID", "ENSRNOG00000017895")]) 
-Eno1_pred$FID = as.character(Eno1_pred$FID)
+Dhfr_pred <- as.data.frame(pred_expr[, c("FID", "ENSRNOG00000013521")])
+Dhfr_obs <- as.data.frame(obs_expr[,  c("FID", "ENSRNOG00000013521")]) 
+Dhfr_pred$FID = as.character(Dhfr_pred$FID)
 
-Eno1_pred <- Eno1_pred[match(Eno1_obs$FID, Eno1_pred$FID),]
-Eno1_obs <- Eno1_obs[match(Eno1_pred$FID, Eno1_obs$FID ), ]
+Dhfr_pred <- Dhfr_pred[match(Dhfr_obs$FID, Dhfr_pred$FID),]
+Dhfr_obs <- Dhfr_obs[match(Dhfr_pred$FID, Dhfr_obs$FID ), ]
 
-Eno1_pred$FID = as.character(Eno1_pred$FID)
-Eno1 <- inner_join(Eno1_pred, Eno1_obs, by = "FID")
+Dhfr_pred$FID = as.character(Dhfr_pred$FID)
+Dhfr <- inner_join(Dhfr_pred, Dhfr_obs, by = "FID")
 ```
 
 Plot pred vs obs expression with our models in NcAcc2 tissue
 ```{r compare model performance in NcAcc2}
 Mgmt <- read_tsv("/Users/natashasanthanam/Downloads/model_perf_Mgmt.txt")
 Polr3k <- read_tsv("/Users/natashasanthanam/Downloads/model_perf_Polr3k.txt")
-Eno1 <- read_tsv("/Users/natashasanthanam/Downloads/model_perf_Eno1.txt")
+Dhfr <- read_tsv("/Users/natashasanthanam/Downloads/model_perf_Dhfr.txt")
 
 g1 <- ggplot(Mgmt, aes(pred, obs)) + geom_point() + annotate("text", x = 0.4, y = 2.5, label = "Mgmt", size = 10, fontface =2) + annotate("text", x = 0.53, y = 2, label = "r2 =  0.724", size = 8) + theme(aspect.ratio=1) + xlab("Predicted expression") + ylab("Observed Expression")
 
 g2 <- ggplot(Polr3k, aes(pred, obs)) + geom_smooth(size = 1) + geom_point() + ggtitle("Polr3k") + annotate("text", x = -1.8, y = 2, label = "r2 =  0.796", size = 3)  + theme(aspect.ratio=1)
-g3 <- ggplot(Eno1, aes(pred, obs)) + geom_smooth(size = 1) + geom_point() + ggtitle("Enol1") + annotate("text", x = -2.2, y = 2, label = "r2 =  0.780", size = 3)  + theme(aspect.ratio=1)
 
-fig = ggarrange(g1 + rremove("ylab") + rremove("xlab"), g2 + rremove("ylab") + rremove("xlab"), g3+ rremove("ylab") + rremove("xlab"), ncol = 3)  
-annotate_figure(fig, left = text_grob("Observed Expression", rot = 90), bottom = textGrob("Predicted Expression"))
+g3 <- ggplot(Dhfr, aes(pred, obs))  + geom_point() + annotate("text", x = -0.4, y = 2.5, label = "Dhfr", size = 10, fontface =2) + annotate("text", x = -0.25, y = 2, label = "r2 =  0.554", size = 8) + theme(aspect.ratio=1) + xlab("Predicted expression") + ylab("Observed Expression") + coord_cartesian(xlim = c(NA, 1.25)) 
+
 ```
 
 Calculate Predicted vs Observed Expression for Mgmt in Humans using GTEx NA predictDB with Geuvadis genotypes (hg38) as well
@@ -132,25 +130,26 @@ python3 $METAXCAN/Predict.py \
 --throw
 ```
 
-AC068282.3 r2= 0.7268118
+DHFR r2= 0.5054578
 ```{r check correlation between predicted and observed expression, eval=FALSE}
 pred_expr <- fread("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/comp_to_GTEx/1000G_NAcc2__predict.txt")
 obs_expr <- fread("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/comp_to_GTEx/GD462.GeneQuantRPKM.50FN.samplename.resk10.txt.gz")
 
 obs_expr <- obs_expr %>% select(-c(Chr, Gene_Symbol, Coord)) %>% pivot_longer(!TargetID, names_to = "FID", values_to = "count") %>% pivot_wider(names_from = TargetID, values_from = count)
+colnames(obs_expr)[2:ncol(obs_expr)] = sapply(strsplit(colnames(obs_expr)[2:ncol(obs_expr)], "\\."), `[`, 1)
 
-AC0_pred <- as.data.frame(pred_expr[, c("FID", "ENSG00000236682.1")])
-AC0_obs <- as.data.frame(obs_expr[,  c("FID", "ENSG00000236682.1")]) 
+DHFR_pred <- as.data.frame(pred_expr[, c("FID", "ENSG00000228716.6")])
+DHFR_obs <- as.data.frame(obs_expr[,  c("FID", "ENSG00000228716")]) 
 
-AC0_pred <- AC0_pred[match(AC0_obs$FID, AC0_pred$FID),]
-AC0_obs <- AC0_obs[match(AC0_pred$FID, AC0_obs$FID ), ]
+DHFR_pred <- DHFR_pred[match(DHFR_obs$FID, DHFR_pred$FID),]
+DHFR_obs <- DHFR_obs[match(DHFR_pred$FID, DHFR_obs$FID ), ]
 
 
-AC0 <- inner_join(AC0_pred, AC0_obs, by = "FID")
-colnames(AC0) = c("FID", "pred", "obs")
+DHFR <- inner_join(DHFR_pred, DHFR_obs, by = "FID")
+colnames(DHFR) = c("FID", "pred", "obs")
 
-AC0_GTEx <- read_tsv("/Users/natashasanthanam/Downloads/GTEx_AC0_results.txt")
-g4 <- ggplot(AC0_GTEx, aes(pred, obs)) + geom_point() + annotate("text", x = -0.4, y = 1.1, label = "AC068282.3", size = 10, fontface =2) + annotate("text", x = -0.55, y = 1, label = "r2 =  0.727", size = 8) + theme(aspect.ratio=1) + xlab("Predicted expression") + ylab("Observed Expression")
+DHFR_GTEx <- read_tsv("/Users/natashasanthanam/Downloads/GTEx_DHFR_results.txt", col_names = TRUE)
+g4 <- ggplot(DHFR_GTEx, aes(pred, obs)) + geom_point() + annotate("text", x = -0.45, y = 55, label = "DHFR", size = 10, fontface =2) + annotate("text", x = -0.4, y = 51, label = "r2 =  0.506", size = 8) + theme(aspect.ratio=1) + xlab("Predicted expression") + ylab("Observed Expression")
 ```
 
 # Correlation of predicted R2 between tissues in GTEx
@@ -245,24 +244,25 @@ lg_df %>% mutate(human_shuffled_r2 = sample(human_r2, nrow(lg_df), replace=F)) %
 
 Compare Predictability Between Tissues
 ```{r compare predictability between rat tissue, eval=FALSE}
-filelist <- list.files("/Users/natashasanthanam//Box/imlab-data/data-Github/rat-genomic-analysis/sql/Natasha_re-generate_models", full.names = TRUE)
+box.dir <- "/Users/natashasanthanam/Box/imlab-data/data-Github/rat-genomic-analysis/sql/Natasha_re-generate_models/"
+filelist <- c("Il_output_db.db", "Lh_output_db.db", "Ac_output_db.db", "Vo_output_db.db", "Pl_output_db.db")
+tis.list <- c("Infralimbic Cortex", "Lateral Habenula", "Nucleus accumbens", "Orbitofrontal Cortex", "Prelimibic Cortex")
 
 pred_tis <- data.frame(gene = as.character())
 for(fila in filelist) {
+  filename <- box.dir %&% fila
   sqlite.driver <- dbDriver("SQLite")
-  conn <- dbConnect(RSQLite::SQLite(), fila)
-  tis <- substr(fila, 105, 106)
+  conn <- dbConnect(RSQLite::SQLite(), filename)
+  i <- match(fila, filelist)
+  tis <- tis.list[i]
   extra <- dbGetQuery(conn, 'select * from extra') %>% select(c(gene, R2)) 
   colnames(extra)[2] = tis
   pred_tis <- full_join(pred_tis, extra, by = "gene") 
   dbDisconnect(conn)
 }
-
 rownames(pred_tis) <- pred_tis$gene
 pred_tis <- pred_tis %>% select(-c(gene))
-pairs(pred_tis)
 
-ggpairs(pred_tis)
 
 d1 <- cor(pred_tis %>% na.omit)
 d1[lower.tri(d1)] <- NA
@@ -270,14 +270,15 @@ d1 <- d1 %>%
   as.data.frame %>%
   rownames_to_column(var = 'var1') %>%
   gather(var2, value, -var1) 
-d1 <- d1 %>% dplyr::rename(r = value) %>% na.omit()
+d1 <- d1 %>% dplyr::rename(r = value) %>% na.omit() 
+
 
 ggplot(data = d1, aes(x = var1, y = var2, fill = r)) +
  geom_tile(color = "white")+
  scale_fill_gradient(low="dodgerblue", high="dodgerblue4") +
   theme_minimal() +
-  theme(panel.grid = element_blank()) + ylab("") + xlab("") + theme(axis.text = element_text(size = 20)) + theme(aspect.ratio=1)   
-
+  theme(panel.grid = element_blank()) + ylab("") + xlab("") + theme(axis.text = element_text(size = 15), axis.text.x = element_text(angle = 90, hjust = 1)) + theme(aspect.ratio=1)   
+ 
 ```
 
 
@@ -286,28 +287,17 @@ Calculate R2 across GTEx Tissues
 ```{r iterate GTEx models, eval=FALSE}
 model.dir <- "/gpfs/data/im-lab/nas40t2/Data/PredictDB/GTEx_v8/models_v1/eqtl/elastic_net_models/"
 
-filelist <- c("en_Brain_Amygdala.db", "en_Brain_Cerebellum.db", "en_Brain_Nucleus_accumbens_basal_ganglia.db", "en_Brain_Substantia_nigra.db")
+filelist <- c("en_Brain_Amygdala.db", "en_Brain_Cerebellum.db", "en_Brain_Nucleus_accumbens_basal_ganglia.db", "en_Brain_Spinal_cord_cervical_c-1.db", "en_Brain_Substantia_nigra.db")
 
-pred_tis <- data.frame(gene = as.character())
-for(fila in filelist) {
-  filename <- model.dir %&% fila
-  tis <- substr(fila, 4, str_length(fila)-3)
-  sqlite.driver <- dbDriver("SQLite")
-  conn <- dbConnect(RSQLite::SQLite(), filename)
-  extra <- dbGetQuery(conn, 'select * from extra')
-  extra <- extra %>% select(c(gene, pred.perf.R2)) 
-  colnames(extra)[2] = tis
-  pred_tis <- full_join(pred_tis, extra, by = "gene") 
-  dbDisconnect(conn)
-}
+w
 ```
 
 
 ```{r plot R2 across GTEx tissues}
-#pred_tis <- read_tsv(dir %&% "pred_R2_betw_GTEx_brain_tissues.txt", col_names = TRUE)
+#pred_tis <- read_tsv(dir %&% "pred_R2_betw_GTEx_brain_tissues.txt", col_names = TRUE) 
 rownames(pred_tis) <- pred_tis$gene
 pred_tis <- pred_tis %>% select(-c(gene))
-colnames(pred_tis) = c("Amygdala", "Cerebellum", "Nucleus accumbens", "Substantia nigra")
+colnames(pred_tis) = c("Amygdala", "Cerebellum", "Nucleus accumbens",  "Spinal cord", "Substantia nigra")
 
 
 d2 <- cor(pred_tis %>% na.omit)

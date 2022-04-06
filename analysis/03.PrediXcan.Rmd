@@ -141,6 +141,24 @@ tempo_df %>% group_by(gene) %>% summarise(n = n())
 tempo_df %>% group_by(metabolic_trait) %>% summarise(n = n())
 ```
 
+Filter prediXcan results for Supplementary Table
+```{r}
+full_df <- full_df %>% filter(metabolic_trait == "bmi_bodylength_w_tail"|metabolic_trait ==  "bodylength_w_tail"| metabolic_trait == "bodyweight" | metabolic_trait == "fasting_glucose" | metabolic_trait == "epifat" |  metabolic_trait == "retrofat" | metabolic_trait == "parafat")
+
+full_df <- full_df %>% mutate(gene_name = orth.rats[match(full_df$gene, orth.rats$rnorvegicus_homolog_ensembl_gene),4]$rnorvegicus_homolog_associated_gene_name, .before = effect)
+
+full_df$metabolic_trait[full_df$metabolic_trait == "bmi_bodylength_w_tail" ] <- "Body Mass Index (BMI) with tail"
+full_df$metabolic_trait[full_df$metabolic_trait == "bodylength_w_tail" ] <- "Body length including tail"
+full_df$metabolic_trait[full_df$metabolic_trait == "bodyweight" ] <- "Body weight"
+full_df$metabolic_trait[full_df$metabolic_trait == "fasting_glucose" ] <- "Fasting Glucose"
+full_df$metabolic_trait[full_df$metabolic_trait == "epifat" ] <- "Epididymal fat"
+full_df$metabolic_trait[full_df$metabolic_trait == "retrofat" ] <- "Retroperitoneal fat"
+full_df$metabolic_trait[full_df$metabolic_trait == "parafat" ] <- "Parametrial fat"
+
+full_df <- full_df %>% mutate(bf_sig = ifelse(full_df$pvalue <= 5.767678e-06, "Yes", "No"))
+```
+
+
 
 ```{r find genes that overlap in Humans, eval=FALSE}
 human_height_genes <- read_tsv("/Users/natashasanthanam/Downloads/Human_prediXcan_all_traits.txt", col_names = TRUE)
@@ -368,5 +386,78 @@ for(i in 2:ncol(pheno)) {
   df <- df %>% mutate(sign = sign(effect))
   write_tsv(df, data.dir %&% "prediXcan/metabolic_traits/associations/most_sig_zscores/" %&% trait %&% "_avg_zscore.txt", col_names = FALSE)
 }
+```
+
+FUMA analysis
+```{r FUMA analysis, eval=TRUE}
+gene_annot_hum <- fread("/Users/natashasanthanam/GTEx-Analysis/annotations_gencode_v26.tsv")
+height_annot <- gene_annot_hum[na.omit(match(height_df$gene_name, gene_annot_hum$gene_name)),]
+height_annot <- height_annot %>% select(c(gene_name, chromosome, start))
+
+
+height_df <- full_df %>% filter(metabolic_trait == "bodylength_w_tail") %>% filter(pvalue <= 5.767678e-06) %>% select(c(gene_name)) %>% na.omit()
+height_df <- inner_join(height_df, height_annot, by = "gene_name") 
+height_df <- height_df %>% mutate(SNP = paste(height_df$chromosome, height_df$start, sep= ":")) %>% select(c(gene_name, SNP))
+
+
+bmi_annot <- gene_annot_hum[na.omit(match(bmi_df$gene_name, gene_annot_hum$gene_name)),]
+bmi_annot <- bmi_annot %>% select(c(gene_name, chromosome, start))
+bmi_df <-  full_df %>% filter(metabolic_trait == "bmi_bodylength_w_tail") %>% filter(pvalue <= 5.767678e-06) %>% select(c(gene_name)) %>% na.omit()
+
+bmi_df <- inner_join(bmi_df, bmi_annot, by = "gene_name") 
+bmi_df <- bmi_df %>% mutate(SNP = paste(bmi_df$chromosome, bmi_df$start, sep= ":")) %>% select(c(gene_name, SNP))
+```
+
+
+Loci Analysis
+```{r function to count distinct genes}
+fn_count_distinct_loci = function(df_loci) {
+all_distinct_loci <- tibble(chr= as.numeric(), gene_id = as.character())
+for(i in 1:20) {
+  if(i %in% df_loci$chr) {
+    tempo <- df_loci %>% filter(chr == i)
+    tempo <- df_loci[order(df_loci$start),]
+    for(j in 1:(nrow(tempo)-1)) {
+      if(nrow(tempo) == 1) {
+        all_distinct_loci <- full_join(tempo %>% select(c(chr, gene_id)), all_distinct_loci, by = c("chr", "gene_id"))
+      }
+      else if(abs(tempo$start[j+1] - tempo$start[j]) >= 1e+06) {
+           all_distinct_loci <- full_join(tempo[j,1:2], all_distinct_loci, by = c("chr", "gene_id"))
+        }
+        else { 
+          j = j+1
+        }
+      }
+  }
+  else {
+    i <- i+1
+  }
+} 
+return(all_distinct_loci)
+}
+```
+
+
+
+```{r find distinct loci related to height}
+gene_annot <- readRDS("/Users/natashasanthanam/Github/rat-genomic-analysis/data/gene_annotation.RDS") %>% select(c(chr, gene_id, gene_name, start, end))
+height_loci <- full_df %>% filter(metabolic_trait == "bodylength_w_tail") %>% filter(pvalue <= 5.767678e-06)
+
+height_loci <- inner_join(gene_annot, height_loci %>% select(gene) %>% rename(gene_id = gene), by = "gene_id")
+height_loci$chr = as.numeric(height_loci$chr)
+height_loci <-  height_loci[order(height_loci$chr),]
+
+height_distinct_loci <- fn_count_distinct_loci(height_loci)
+```
+
+
+```{r find distinct loci related to BMI}
+bmi_loci <- full_df %>% filter(metabolic_trait == "bmi_bodylength_w_tail") %>% filter(pvalue <= 5.767678e-06)
+
+bmi_loci <- inner_join(gene_annot, bmi_loci %>% select(gene) %>% rename(gene_id = gene), by = "gene_id")
+bmi_loci$chr = as.numeric(bmi_loci$chr)
+bmi_loci <-  bmi_loci[order(bmi_loci$chr),]
+
+bmi_distinct_loci <- fn_count_distinct_loci(bmi_loci)
 ```
 
