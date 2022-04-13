@@ -13,8 +13,8 @@ library(tidyverse)
 library(glue)
 library(readxl)
 
-wd =  "/Users/sabrinami/Github/Rat_Genomics_Paper_Pipeline/data/"
 "%&%" = function(a,b) paste(a,b,sep="")
+wd =  "/Users/sabrinami/Github/Rat_Genomics_Paper_Pipeline/data/"
 ```
 
 ## Generating Raw Genotype files from Tyson's original analysis
@@ -196,11 +196,11 @@ pheno_Pl <- as.data.frame(cbind(FID = rownames(gexPl_transpose), IID = rownames(
 pheno_Vo <- as.data.frame(cbind(FID = rownames(gexVo_transpose), IID = rownames(gexVo_transpose), gexVo_transpose))
 
 
-write_tsv(pheno_Ac, wd %&% "rat_pheno_Ac.txt", col_names = FALSE)
-write_tsv(pheno_Il, wd %&% "rat_pheno_Il.txt", col_names = FALSE)
-write_tsv(pheno_Lh, wd %&% "rat_pheno_Lh.txt", col_names = FALSE)
-write_tsv(pheno_Pl, wd %&% "rat_pheno_Pl.txt", col_names = FALSE)
-write_tsv(pheno_Vo, wd %&% "rat_pheno_Vo.txt", col_names = FALSE)
+write_tsv(pheno_Ac, wd %&% "phenotype_files/rat_pheno_Ac.txt", col_names = FALSE)
+write_tsv(pheno_Il, wd %&% "phenotype_files/rat_pheno_Il.txt", col_names = FALSE)
+write_tsv(pheno_Lh, wd %&% "phenotype_files/rat_pheno_Lh.txt", col_names = FALSE)
+write_tsv(pheno_Pl, wd %&% "phenotype_files/rat_pheno_Pl.txt", col_names = FALSE)
+write_tsv(pheno_Vo, wd %&% "phenotype_files/rat_pheno_Vo.txt", col_names = FALSE)
 ```
 
 
@@ -211,17 +211,17 @@ All conversion to plink format use the same MAP file, but because of plink conve
 ```{bash, eval=FALSE}
 cd /gpfs/data/im-lab/nas40t2/sabrina/Rat_Genomics_Paper_Pipeline/data
 
-plink --file rat_genotype --make-bed --out rat_genome_Ac
+plink --file rat_genotype --make-bed --out plink_files/rat_genome_Ac
 
 mv rat_genotype.map rat_genotype_Il.map
-plink --file rat_genotype_Il --make-bed --out rat_genome_Il
+plink --file rat_genotype_Il --make-bed --out plink_files/rat_genome_Il
 
 mv rat_genotype_Il.map rat_genotype_Lh.map
-plink --file rat_genotype_Lh --make-bed --out rat_genome_Lh
+plink --file rat_genotype_Lh --make-bed --out plink_files/rat_genome_Lh
 
 mv rat_genotype_Lh.map rat_genotype_Pl.map
-plink --file rat_genotype_Pl --make-bed --out rat_genome_Pl
+plink --file rat_genotype_Pl --make-bed --out plink_files/rat_genome_Pl
 
 mv rat_genotype_Pl.map rat_genotype_Vo.map
-plink --file rat_genotype_Vo --make-bed --out rat_genome_Vo
+plink --file rat_genotype_Vo --make-bed --out plink_files/rat_genome_Vo
 ```
