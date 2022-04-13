@@ -35,19 +35,26 @@ for(fila in filelist) {
 
 
 ```{r change colnames of Ac prediction model, eval=FALSE}
-data.dir <- "/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/rat-genomic-analysis/"
-filename <-  data.dir %&% "Results/sql/Ac_output_db.db"
+data.dir <- "/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/"
+filename <-  data.dir %&% "models/EN_models/" %&% tis %&% "_output_db.db"
   sqlite.driver <- dbDriver("SQLite")
   conn <- dbConnect(RSQLite::SQLite(), filename)
   extra <- dbGetQuery(conn, 'select * from extra')
   weights <- dbGetQuery(conn, 'select * from weights')
 extra <- extra %>% select(c(gene, genename, n.snps, R2, pval)) %>% mutate(pred.perf.qval = NA) 
 colnames(extra) <- c("gene", "genename", "n.snps.in.model", "pred.perf.R2", "pred.perf.pval", "pred.perf.qval")
+cor_df <- read_tsv(data.dir %&% "rat-genomic-analysis/Results/all_results_" %&% tis, col_names = TRUE) %>% select(c(gene, cor))
+
+extra <- extra %>% filter(pred.perf.R2 > 0.01)
+
+extra <- full_join(extra, cor_df, by = "gene")
+extra <- extra %>% filter(cor >= 0 | is.na(cor)) %>% select(-c(cor)) %>% filter(!is.na(pred.perf.R2))
+weights <- weights %>% filter(gene %in% extra$gene)
 ```
 
 
 ```{r create database connection, eval=FALSE}
-model_db = MODEL %&% "Ac_prediXcan_db.db"
+model_db = MODEL %&% tis %&% "_best_prediXcan_db.db"
 conn <- dbConnect(RSQLite::SQLite(), model_db)
 dbWriteTable(conn, "weights", weights)
 dbWriteTable(conn, "extra", extra)
@@ -67,7 +74,6 @@ write_tsv(samples, GENO %&% "samples_Rat_metab_abrv_phenos_file", col_names = FA
 ```
 
 
-
 # Do for all 5 tissues 
 ```{bash run prediXcan, eval = FALSE}
 #run prediXcan
@@ -77,21 +83,23 @@ export GENO=/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/Box_files/rat_genotyp
 export MODEL=/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/models
 
 python $METAXCAN/Predict.py \
---model_db_path $MODEL/Ac_prediXcan_db.db \
+--model_db_path $MODEL/Ac_best_prediXcan_db.db \
 --text_genotypes  \
  $GENO/chr*.round2_impute2_3473.txt  \
 --on_the_fly_mapping METADATA "{}_{}_{}_{}" \
 --text_sample_ids $GENO/samples_Rat_metab_phenos_file \
---prediction_output rat_metabolic_Ac__predict.txt  \
---prediction_summary_output rat_metabolic_Ac__summary.txt \
+--prediction_output rat_metabolic_Ac_best__predict.txt  \
+--prediction_summary_output rat_metabolic_Ac_best__summary.txt \
 --throw
 ```
 
 ```{r }
-pred_expr <- read_tsv("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/prediXcan/metabolic_traits/rat_metabolic_" %&% args[1] %&% "__predict.txt", col_names = TRUE)
+pred_expr <- read_tsv("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/prediXcan/metabolic_traits/rat_metabolic_" %&% tis %&% "_best__predict.txt", col_names = TRUE)
 
 all_rats <- read_tsv(PHENO %&% "all_names.txt", col_names = TRUE)
 pred_expr <- pred_expr %>% filter(!(FID  %in% all_rats$ID))
+
+#write_tsv(pred_expr, "/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/prediXcan/metabolic_traits/rat_metabolic_" %&% tis %&% "_best__predict.txt", col_names = TRUE)
 ```
 
 
@@ -130,11 +138,11 @@ for(fila in filelist) {
   tempo <- cbind(assoc_fila, metabolic_trait=pheno_id) %>% select(-c(status))
   full_df <- rbind(full_df, tempo)
 } 
-#full_df <- read_tsv("/Users/natashasanthanam/Github/rat-genomic-analysis/data/rat_metabolic_traits_Ac_full_assocs.txt", col_names = TRUE)
+#full_df <- read_tsv("/Users/natashasanthanam/Github/rat-genomic-analysis/data/rat_metabolic_traits_best_Ac_full_assocs.txt", col_names = TRUE)
 
 tempo_df <- full_df %>% filter(pvalue < 5.767678e-06)
 
-#565 sig genes
+#416 sig genes
 tempo_df %>% group_by(gene) %>% summarise(n = n())
 
 #all 11 traits
@@ -161,13 +169,13 @@ full_df <- full_df %>% mutate(bf_sig = ifelse(full_df$pvalue <= 5.767678e-06, "Y
 
 
 ```{r find genes that overlap in Humans, eval=FALSE}
-human_height_genes <- read_tsv("/Users/natashasanthanam/Downloads/Human_prediXcan_all_traits.txt", col_names = TRUE)
-human_height_genes <- human_height_genes %>% mutate(rat_gene = orth.rats[match(human_height_genes$gene_name, orth.rats$external_gene_name), 4]$rnorvegicus_homolog_associated_gene_name) %>% filter(abs(zscore_Height) >= 3.719)
+human_height_genes <- read_tsv("/Users/natashasanthanam/Downloads/Human_phenomeXcan_all_traits.txt", col_names = TRUE)
+human_height_genes <- human_height_genes %>% mutate(rat_gene = orth.rats[match(human_height_genes$gene_name, orth.rats$external_gene_name), 4]$rnorvegicus_homolog_associated_gene_name) %>% filter(pvalue_Height <= 0.01)
 
 
-human_bmi_genes <- read_tsv("/Users/natashasanthanam/Downloads/Human_prediXcan_all_traits.txt", col_names = TRUE) 
-colnames(human_bmi_genes)[3] = "zscore_BMI"
-human_bmi_genes <- human_bmi_genes %>% mutate(rat_gene = orth.rats[match(human_bmi_genes$gene_name, orth.rats$external_gene_name), 4]$rnorvegicus_homolog_associated_gene_name) %>% filter(abs(zscore_BMI) >= 3.719 )
+human_bmi_genes <- read_tsv("/Users/natashasanthanam/Downloads/Human_phenomeXcan_all_traits.txt", col_names = TRUE) 
+colnames(human_bmi_genes)[2] = "pvalue_BMI"
+human_bmi_genes <- human_bmi_genes %>% mutate(rat_gene = orth.rats[match(human_bmi_genes$gene_name, orth.rats$external_gene_name), 4]$rnorvegicus_homolog_associated_gene_name) %>% filter(pvalue_BMI <= 0.01 )
 ```
 
 
@@ -177,10 +185,10 @@ gene_annot <- readRDS("/Users/natashasanthanam/Github/rat-genomic-analysis/data/
 tempo_manhatt <- inner_join(gene_annot, full_df, by = "gene")
 tempo_manhatt$chr <- as.numeric(tempo_manhatt$chr)
 
-bmi_manhat <- tempo_manhatt %>% filter(metabolic_trait == "bmi_bodylength_w_tail") 
+bmi_manhat <- tempo_manhatt %>% filter(metabolic_trait == "Body Mass Index (BMI) with tail") 
 bmi_manhat <- bmi_manhat %>% mutate(gene_name = orth.rats[match(bmi_manhat$gene, orth.rats$rnorvegicus_homolog_ensembl_gene), 4]$rnorvegicus_homolog_associated_gene_name)
 
-height_manhat <- tempo_manhatt %>% filter(metabolic_trait == "bodylength_w_tail") 
+height_manhat <- tempo_manhatt %>% filter(metabolic_trait == "Body length including tail") 
 height_manhat <- height_manhat %>% mutate(gene_name = orth.rats[match(height_manhat$gene, orth.rats$rnorvegicus_homolog_ensembl_gene), 4]$rnorvegicus_homolog_associated_gene_name)
 ```
 
@@ -410,40 +418,24 @@ bmi_df <- bmi_df %>% mutate(SNP = paste(bmi_df$chromosome, bmi_df$start, sep= ":
 
 
 Loci Analysis
-```{r function to count distinct genes}
-fn_count_distinct_loci = function(df_loci) {
-all_distinct_loci <- tibble(chr= as.numeric(), gene_id = as.character())
-for(i in 1:20) {
-  if(i %in% df_loci$chr) {
-    tempo <- df_loci %>% filter(chr == i)
-    tempo <- df_loci[order(df_loci$start),]
-    for(j in 1:(nrow(tempo)-1)) {
-      if(nrow(tempo) == 1) {
-        all_distinct_loci <- full_join(tempo %>% select(c(chr, gene_id)), all_distinct_loci, by = c("chr", "gene_id"))
-      }
-      else if(abs(tempo$start[j+1] - tempo$start[j]) >= 1e+06) {
-           all_distinct_loci <- full_join(tempo[j,1:2], all_distinct_loci, by = c("chr", "gene_id"))
-        }
-        else { 
-          j = j+1
-        }
-      }
-  }
-  else {
-    i <- i+1
-  }
-} 
-return(all_distinct_loci)
-}
+```{r}
+next_sig <- sapply(as, function(a) {
+    diff <- bs-a
+    if(all(diff < 0)) return(NA)
+    bs[min(diff[diff > 0]) == diff]
+})
 ```
 
 
+```{r function to count distinct genes}
+devtools::source_gist("50a2bdc64e103e8321fefb9e712aa137")
+```
 
 ```{r find distinct loci related to height}
 gene_annot <- readRDS("/Users/natashasanthanam/Github/rat-genomic-analysis/data/gene_annotation.RDS") %>% select(c(chr, gene_id, gene_name, start, end))
 height_loci <- full_df %>% filter(metabolic_trait == "bodylength_w_tail") %>% filter(pvalue <= 5.767678e-06)
 
-height_loci <- inner_join(gene_annot, height_loci %>% select(gene) %>% rename(gene_id = gene), by = "gene_id")
+height_loci <- inner_join(gene_annot, height_loci %>% select(c(gene, pvalue)) %>% rename(gene_id = gene), by = "gene_id")
 height_loci$chr = as.numeric(height_loci$chr)
 height_loci <-  height_loci[order(height_loci$chr),]
 
@@ -454,10 +446,39 @@ height_distinct_loci <- fn_count_distinct_loci(height_loci)
 ```{r find distinct loci related to BMI}
 bmi_loci <- full_df %>% filter(metabolic_trait == "bmi_bodylength_w_tail") %>% filter(pvalue <= 5.767678e-06)
 
-bmi_loci <- inner_join(gene_annot, bmi_loci %>% select(gene) %>% rename(gene_id = gene), by = "gene_id")
+bmi_loci <- inner_join(gene_annot, bmi_loci %>% select(c(gene, pvalue)) %>% rename(gene_id = gene), by = "gene_id")
 bmi_loci$chr = as.numeric(bmi_loci$chr)
 bmi_loci <-  bmi_loci[order(bmi_loci$chr),]
 
 bmi_distinct_loci <- fn_count_distinct_loci(bmi_loci)
+```
+
+
+
+Distribution of Effect Sizes from PrediXcan
+```{r}
+hist(full_df$effect)
+summary(full_df$effect)
+```
+```{r}
+filename <- "/Users/natashasanthanam/Box/imlab-data/data-Github/rat-genomic-analysis/sql/Tyson_original_models/Ac_output_db.db"
+ sqlite.driver <- dbDriver("SQLite")
+conn <- dbConnect(RSQLite::SQLite(), filename)
+weights <- dbGetQuery(conn, 'select * from weights')
+hist(weights$weight)
+dbDisconnect(conn)
+```
+plot predicted vs observed expression for Eif3a
+```{r}
+Eif3a <- read_tsv("/Users/natashasanthanam/Downloads/model_perf_Eif3a.txt", col_names = TRUE)
+ggplot(Eif3a, aes(pred, obs)) + geom_point()
+
+```
+Remove genes with bad effect size
+```{r}
+full_df %>% mutate(R2 = extra[match(full_df$gene, extra$gene),3]) %>% filter(abs(effect) > 30) %>% select(c(R2)) %>% summary()
+
+
+%>% group_by(gene) %>% summarise(n=n()) 
 ```
 

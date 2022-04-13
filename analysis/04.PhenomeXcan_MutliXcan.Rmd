@@ -126,62 +126,14 @@ pheno_Multi_rat <- pheno_Multi_rat %>% mutate(gene_name = orth.rats[match(pheno_
 # Enrichment Analysis
 ```{r enrichment for fasting glucose}
 devtools::source_gist("38431b74c6c0bf90c12f")
+devtools::source_gist("1e9053c8f35c30396429350a08f33ea7")
 ```
-
-make qqunif function
-```{r qqunif function, eval=FALSE}
-qqunif = 
-  function(p,BH=T,CI=T,mlog10_p_thres=30,...)
-  {
-    ## thresholded by default at 1e-30
-    p=na.omit(p)
-    nn = length(p)
-    xx =  -log10((1:nn)/(nn+1))
-    
-    p_thres = 10^{-mlog10_p_thres}
-    if( sum( p < p_thres) )
-    {
-      warning(paste("thresholding p to ",p_thres) )
-      p = pmax(p, p_thres)
-    }
-    plot( xx,  -sort(log10(p)),
-          xlab=expression(Expected~~-log[10](italic(p))),
-          ylab=expression(Observed~~-log[10](italic(p))),
-          cex.lab=1.4,mgp=c(2,1,0),
-          ... )
-    abline(0,1,col='gray')
-    if(CI)
-    {
-      ## create the confidence intervals
-      c95 <- rep(0,nn)
-      c05 <- rep(0,nn)
-      ## the jth order statistic from a
-      ## uniform(0,1) sample
-      ## has a beta(j,n-j+1) distribution
-      ## (Casella & Berger, 2002,
-      ## 2nd edition, pg 230, Duxbury)
-      ## this portion was posted by anonymous on
-      ## http://gettinggeneticsdone.blogspot.com/2009/11/qq-plots-of-p-values-in-r-using-ggplot2.html
-      
-      for(i in 1:nn)
-      {
-        c95[i] <- qbeta(0.95,i,nn-i+1)
-        c05[i] <- qbeta(0.05,i,nn-i+1)
-      }
-      
-      lines(xx,-log10(c95),col='gray')
-      lines(xx,-log10(c05),col='gray')
-    }
-  }
-```
-
-
 
 ```{r enrichment for BMI and Height}
 full_df <- full_df %>% mutate(gene_name = orth.rats[match(full_df$gene, orth.rats$rnorvegicus_homolog_ensembl_gene), 2]$external_gene_name)
 
 qqunif(BMI_genes$pvalue, col= "maroon1" )
-BMI_genes_rats <- full_df %>% filter(metabolic_trait == "bmi_bodylength_wo_tail") %>% filter(pvalue <= 0.05) %>% .[["gene_name"]]
+BMI_genes_rats <- full_df %>% filter(metabolic_trait == "bmi_bodylength_wo_tail")  %>% filter(pvalue <= 0.05) %>% .[["gene_name"]]
 qqpoints(BMI_genes %>% filter(gene_name %in% BMI_genes_rats) %>% .[["pvalue"]],pch='+', col = "dodgerblue") 
 
 

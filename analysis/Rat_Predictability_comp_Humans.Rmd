@@ -130,7 +130,7 @@ python3 $METAXCAN/Predict.py \
 --throw
 ```
 
-DHFR r2= 0.5054578
+RPS26 r2= 0.7352744
 ```{r check correlation between predicted and observed expression, eval=FALSE}
 pred_expr <- fread("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/comp_to_GTEx/1000G_NAcc2__predict.txt")
 obs_expr <- fread("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/comp_to_GTEx/GD462.GeneQuantRPKM.50FN.samplename.resk10.txt.gz")
@@ -138,18 +138,23 @@ obs_expr <- fread("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/comp_to_GTEx/G
 obs_expr <- obs_expr %>% select(-c(Chr, Gene_Symbol, Coord)) %>% pivot_longer(!TargetID, names_to = "FID", values_to = "count") %>% pivot_wider(names_from = TargetID, values_from = count)
 colnames(obs_expr)[2:ncol(obs_expr)] = sapply(strsplit(colnames(obs_expr)[2:ncol(obs_expr)], "\\."), `[`, 1)
 
-DHFR_pred <- as.data.frame(pred_expr[, c("FID", "ENSG00000228716.6")])
-DHFR_obs <- as.data.frame(obs_expr[,  c("FID", "ENSG00000228716")]) 
+RPS26_pred <- as.data.frame(pred_expr[, c("FID", "ENSG00000197728.9")])
+RPS26_obs <- as.data.frame(obs_expr[,  c("FID", "ENSG00000197728")]) 
 
-DHFR_pred <- DHFR_pred[match(DHFR_obs$FID, DHFR_pred$FID),]
-DHFR_obs <- DHFR_obs[match(DHFR_pred$FID, DHFR_obs$FID ), ]
+RPS26_pred <- RPS26_pred[match(RPS26_obs$FID, RPS26_pred$FID),]
+RPS26_obs <- RPS26_obs[match(RPS26_pred$FID, RPS26_obs$FID ), ]
 
 
-DHFR <- inner_join(DHFR_pred, DHFR_obs, by = "FID")
-colnames(DHFR) = c("FID", "pred", "obs")
+RPS26 <- inner_join(RPS26_pred, RPS26_obs, by = "FID")
+colnames(RPS26) = c("FID", "pred", "obs")
 
+RPS26_GTEx <- read_tsv("/Users/natashasanthanam/Downloads/GTEx_RPS26.txt", col_names = TRUE)
 DHFR_GTEx <- read_tsv("/Users/natashasanthanam/Downloads/GTEx_DHFR_results.txt", col_names = TRUE)
+
+
 g4 <- ggplot(DHFR_GTEx, aes(pred, obs)) + geom_point() + annotate("text", x = -0.45, y = 55, label = "DHFR", size = 10, fontface =2) + annotate("text", x = -0.4, y = 51, label = "r2 =  0.506", size = 8) + theme(aspect.ratio=1) + xlab("Predicted expression") + ylab("Observed Expression")
+
+g5 <- ggplot(RPS26_GTEx, aes(pred, obs)) + geom_point() + annotate("text", x = -0.5, y = 370, label = "RPS26", size = 10, fontface =2) + annotate("text", x = -0.45, y = 330, label = "r2 =  0.735", size = 8) + theme(aspect.ratio=1) + xlab("Predicted expression") + ylab("Observed Expression")
 ```
 
 # Correlation of predicted R2 between tissues in GTEx
