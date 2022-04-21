@@ -581,7 +581,7 @@ plt_1 <- (ggplot(data = A_df_Ac, aes(x = index))
           + labs(x = 'Genes Sorted by Proportion of Variance Explained (PVE)',
                  y = 'PVE')
            + annotate("text", x = 1250, y = 0.9, label = "Mean h2 =  0.089", size = 6)
-           + annotate("text", x = 1250, y = 0.8, label = "Mean r2 =  0.085", size = 6)) 
+           + annotate("text", x = 1250, y = 0.8, label = "Mean R2 =  0.085", size = 6)) 
 plt_1
 ```
 
@@ -614,8 +614,16 @@ plt_2  <- (ggplot(data = hum_df, aes(x = index))
           + labs(x = 'Genes Sorted by Proportion of Variance Explained (PVE)',
                  y = 'PVE')
           + ylim(c(0,1))
-           + annotate("text", x = 1590, y = 0.9, label = "Mean h2 =  0.129", size = 6)
-           + annotate("text", x = 1550, y = 0.8, label = "Mean r2 =  0.119", size = 6)) 
+           + annotate("text", x = 1590, y = 1.0, label = "Mean h2 =  0.129", size = 6)
+           + annotate("text", x = 1550, y = 0.9, label = "Mean R2 =  0.119", size = 6)) 
 plt_2
+```
+
+```{r}
+all_h2 <- tibble(gene)
+for(l in all) {
+  l <- l %>% select(c(gene, point_estimate))
+  all_h2 <- full_join(all_h2, l, by = "gene")
+}
 ```
 

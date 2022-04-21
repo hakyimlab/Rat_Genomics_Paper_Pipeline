@@ -13,6 +13,7 @@ library(data.table)
 library(RSQLite)
 library(data.table)
 library(qqman)
+library(ggrepel)
 devtools::source_gist("0ddc9c0ea03245bb30efbe3e899897be")
 "%&%" = function(a,b) paste(a,b,sep="")
 args = commandArgs(trailingOnly=TRUE)
@@ -142,7 +143,7 @@ for(fila in filelist) {
 
 tempo_df <- full_df %>% filter(pvalue < 5.767678e-06)
 
-#416 sig genes
+#428 sig genes
 tempo_df %>% group_by(gene) %>% summarise(n = n())
 
 #all 11 traits
@@ -213,14 +214,14 @@ ylim <- gwas_data %>%
   mutate(ylim = abs(floor(log10(pvalue))) + 2) %>% 
   pull(ylim)
 
-sig <-  0.05/(8549)
+sig <-  0.05/(5388)
 
 bmi_manhplot <- ggplot(gwas_data, aes(x = bp_cum, y = -log10(pvalue), 
                                   color = as_factor(chr), size = -log10(pvalue))) +
   geom_hline(yintercept = -log10(sig), color = "grey40", linetype = "dashed") + 
   geom_hline(yintercept = -log10(0.0001), color = "red", linetype = "dashed") + 
   geom_point(alpha = 0.75, shape = ifelse((gwas_data$zscore >= 4.863456), 17, ifelse(gwas_data$zscore <= -4.863456, 25, 19)), fill = "dodgerblue4") +
-  geom_label_repel(aes(label=ifelse(pvalue <=  sig, gene_name, "")), size = 6) + 
+  geom_label_repel(aes(label=ifelse((pvalue <=  sig & gene_name %in% human_bmi_genes$rat_gene), gene_name, "")), size = 6) + 
   ylim(c(0,8)) + 
   scale_x_continuous(label = axis_set$chr, breaks = axis_set$center) +
   scale_color_manual(values = rep(c("dodgerblue4", "midnightblue"), unique(length(axis_set$chr)))) +
@@ -260,14 +261,14 @@ ylim <- gwas_data %>%
   mutate(ylim = abs(floor(log10(pvalue))) + 2) %>% 
   pull(ylim)
 
-sig <-   0.05/(8549)
+sig <-   0.05/(5388)
 
 height_manhplot <- ggplot(gwas_data, aes(x = bp_cum, y = -log10(pvalue), 
                                   color = as_factor(chr), size = -log10(pvalue))) +
   geom_hline(yintercept = -log10(sig), color = "grey40", linetype = "dashed") + 
   geom_hline(yintercept = -log10(0.0001), color = "red", linetype = "dashed") + 
   geom_point(alpha = 0.75, shape = ifelse((gwas_data$zscore >= 4.863456), 17, ifelse(gwas_data$zscore <= -4.863456, 25, 19)), fill = "dodgerblue4") +
-  geom_label_repel(aes(label=ifelse(pvalue <=  sig, gene_name, "")), size = 6) + 
+  geom_label_repel(aes(label=ifelse((pvalue <=  sig & gene_name %in% human_height_genes$rat_gene), gene_name, "")), size = 6) + 
   ylim(c(0,10)) + 
   scale_x_continuous(label = axis_set$chr, breaks = axis_set$center) +
   scale_color_manual(values = rep(c("dodgerblue4", "midnightblue"), unique(length(axis_set$chr)))) +
@@ -418,14 +419,6 @@ bmi_df <- bmi_df %>% mutate(SNP = paste(bmi_df$chromosome, bmi_df$start, sep= ":
 
 
 Loci Analysis
-```{r}
-next_sig <- sapply(as, function(a) {
-    diff <- bs-a
-    if(all(diff < 0)) return(NA)
-    bs[min(diff[diff > 0]) == diff]
-})
-```
-
 
 ```{r function to count distinct genes}
 devtools::source_gist("50a2bdc64e103e8321fefb9e712aa137")
@@ -433,7 +426,7 @@ devtools::source_gist("50a2bdc64e103e8321fefb9e712aa137")
 
 ```{r find distinct loci related to height}
 gene_annot <- readRDS("/Users/natashasanthanam/Github/rat-genomic-analysis/data/gene_annotation.RDS") %>% select(c(chr, gene_id, gene_name, start, end))
-height_loci <- full_df %>% filter(metabolic_trait == "bodylength_w_tail") %>% filter(pvalue <= 5.767678e-06)
+height_loci <- full_df %>% filter(metabolic_trait == "Body length including tail") %>% filter(pvalue <= 9.279881e-06)
 
 height_loci <- inner_join(gene_annot, height_loci %>% select(c(gene, pvalue)) %>% rename(gene_id = gene), by = "gene_id")
 height_loci$chr = as.numeric(height_loci$chr)
@@ -444,41 +437,12 @@ height_distinct_loci <- fn_count_distinct_loci(height_loci)
 
 
 ```{r find distinct loci related to BMI}
-bmi_loci <- full_df %>% filter(metabolic_trait == "bmi_bodylength_w_tail") %>% filter(pvalue <= 5.767678e-06)
+bmi_loci <- full_df %>% filter(metabolic_trait == "Body Mass Index (BMI) with tail") %>% filter(pvalue <= 9.279881e-06)
 
 bmi_loci <- inner_join(gene_annot, bmi_loci %>% select(c(gene, pvalue)) %>% rename(gene_id = gene), by = "gene_id")
 bmi_loci$chr = as.numeric(bmi_loci$chr)
 bmi_loci <-  bmi_loci[order(bmi_loci$chr),]
 
 bmi_distinct_loci <- fn_count_distinct_loci(bmi_loci)
-```
-
-
-
-Distribution of Effect Sizes from PrediXcan
-```{r}
-hist(full_df$effect)
-summary(full_df$effect)
-```
-```{r}
-filename <- "/Users/natashasanthanam/Box/imlab-data/data-Github/rat-genomic-analysis/sql/Tyson_original_models/Ac_output_db.db"
- sqlite.driver <- dbDriver("SQLite")
-conn <- dbConnect(RSQLite::SQLite(), filename)
-weights <- dbGetQuery(conn, 'select * from weights')
-hist(weights$weight)
-dbDisconnect(conn)
-```
-plot predicted vs observed expression for Eif3a
-```{r}
-Eif3a <- read_tsv("/Users/natashasanthanam/Downloads/model_perf_Eif3a.txt", col_names = TRUE)
-ggplot(Eif3a, aes(pred, obs)) + geom_point()
-
-```
-Remove genes with bad effect size
-```{r}
-full_df %>% mutate(R2 = extra[match(full_df$gene, extra$gene),3]) %>% filter(abs(effect) > 30) %>% select(c(R2)) %>% summary()
-
-
-%>% group_by(gene) %>% summarise(n=n()) 
 ```
 

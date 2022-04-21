@@ -16,6 +16,8 @@ library(glmnet)
 "%&%" = function(a,b) paste(a,b,sep="")
 dir <- "/Users/natashasanthanam/Github/rat-genomic-analysis/data/"
 devtools::source_gist("ee5f67abddd0b761ee24410ea71c41aa")
+devtools::source_gist("38431b74c6c0bf90c12f")
+devtools::source_gist("1e9053c8f35c30396429350a08f33ea7")
 ```
 
 ```{r file dir, eval=FALSE}
@@ -62,8 +64,8 @@ pheno <- pheno %>% filter(!(rat_rfid  %in% all_rats$ID))
 
 
 ```{r check number of genes in each model}
-weights_bmi <- fread("/Users/natashasanthanam/Downloads/weights.bmi.tsv.gz") 
-weights_height <-  fread("/Users/natashasanthanam/Downloads/weights.height.tsv.gz")  
+weights_bmi <- fread("/Users/natashasanthanam/Downloads/weights.bmi.annot.tsv") 
+weights_height <-  fread("/Users/natashasanthanam/Downloads/weights.height.annot.tsv")  
 
 n_genes_bmi = as.matrix(apply(weights_bmi[,2:ncol(weights_bmi)], 2, function(x) sum(x != 0 )))
 n_genes_height = as.matrix(apply(weights_height[,2:ncol(weights_height)], 2, function(x) sum(x != 0 )))
@@ -90,8 +92,8 @@ for(i in 1:ncol(tempo)){
 
 bmi_w_tail_cor <- data.frame(cor = numeric(), pvalue = numeric(), model = character(), n_genes_in_model = numeric(), conf.int.min = numeric(), conf.int.max = numeric())
 for(i in 1:ncol(tempo)){
-  bmi_w_tail_cor[i,1] <- cor.test(bmi_with_tail$bmi_bodylength_w_tail, tempo[,i], method = "spearman")$estimate
-  bmi_w_tail_cor[i,2] <- cor.test(bmi_with_tail$bmi_bodylength_w_tail, tempo[,i], method = "spearman")$p.value
+  bmi_w_tail_cor[i,1] <- cor.test(bmi_with_tail$bmi_bodylength_w_tail, tempo[,i])$estimate
+  bmi_w_tail_cor[i,2] <- cor.test(bmi_with_tail$bmi_bodylength_w_tail, tempo[,i])$p.value
   bmi_w_tail_cor[i,3] <- paste("model", i, sep = "_")
   bmi_w_tail_cor[i,4] <- n_genes_bmi[i,1]
   bmi_w_tail_cor[i,5] <- cor.test(bmi_with_tail$bmi_bodylength_w_tail, tempo[,i])$conf.int[1]
@@ -122,8 +124,8 @@ for(i in 1:ncol(tempo)){
 bodylength_w_tail_cor <- data.frame(cor = numeric(), pvalue = numeric(), model = character(), n_genes_in_model = numeric(), conf.int.min = numeric(), conf.int.max = numeric())
 for(i in 1:ncol(tempo)){
   fit = lm(bodylength_w_tail$bodylength_w_tail ~ tempo[,i])
-  bodylength_w_tail_cor[i,1] <- cor.test(bodylength_w_tail$bodylength_w_tail, tempo[,i], method = "spearman")$estimate
-  bodylength_w_tail_cor[i,2] <- cor.test(bodylength_w_tail$bodylength_w_tail, tempo[,i], method = "spearman")$p.value
+  bodylength_w_tail_cor[i,1] <- cor.test(bodylength_w_tail$bodylength_w_tail, tempo[,i])$estimate
+  bodylength_w_tail_cor[i,2] <- cor.test(bodylength_w_tail$bodylength_w_tail, tempo[,i])$p.value
   bodylength_w_tail_cor[i,3] <- paste("model", i, sep = "_")
   bodylength_w_tail_cor[i,4]<- n_genes_height[i,1]
   bodylength_w_tail_cor[i,5] <- cor.test(bodylength_w_tail$bodylength_w_tail, tempo[,i])$conf.int[1]
@@ -151,8 +153,8 @@ tempo <- pred_height[na.omit(match(fasting_glucose$rat_rfid, rownames(pred_heigh
 neg_control_df <- data.frame(estimate = numeric(), pvalue = numeric(), model = character(), n_genes_in_model = numeric(), conf.int.min = numeric(), conf.int.max = numeric())
 
 for(i in 1:ncol(tempo)){
-  neg_control_df[i,1] <- cor.test(fasting_glucose$fasting_glucose, tempo[,i], method = "spearman")$estimate
-  neg_control_df[i,2] <- cor.test(fasting_glucose$fasting_glucose, tempo[,i], method = "spearman")$p.value
+  neg_control_df[i,1] <- cor.test(fasting_glucose$fasting_glucose, tempo[,i])$estimate
+  neg_control_df[i,2] <- cor.test(fasting_glucose$fasting_glucose, tempo[,i])$p.value
   neg_control_df[i,3] <- paste("model", i, sep = "_")
   neg_control_df[i,4]<- n_genes_height[i,1]
   neg_control_df[i,5] <- cor.test(fasting_glucose$fasting_glucose, tempo[,i])$conf.int[1]
@@ -160,5 +162,34 @@ for(i in 1:ncol(tempo)){
 }
 
 ggplot(neg_control_df, aes(n_genes_in_model, estimate)) + geom_errorbar(aes(ymin = conf.int.min, ymax = conf.int.max ), width=0.2,  color="gray48") + geom_point(position="jitter") +geom_line() +  xlab("Number of genes in each model") + ylab("Correlation Coefficient (r)") 
+```
+
+# Test PTRS top genes for Enrichment
+```{r}
+top_ptrs_genes <- weights_height %>% select(c(gene_name, model_5)) %>% filter(model_5 != 0) %>% select(c(gene_name))
+top_ptrs_genes$gene_name = sapply(strsplit(top_ptrs_genes$gene_name , "\\."), `[`, 1)
+
+top_ptrs_genes <- top_ptrs_genes %>% mutate(rat_gene = orth.rats[match(top_ptrs_genes$gene_name, orth.rats$ensembl_gene_id), 3]$rnorvegicus_homolog_ensembl_gene)
+
+full_df <- read_tsv("/Users/natashasanthanam/Github/rat-genomic-analysis/data/rat_metabolic_traits_best_Ac_full_assocs.txt", col_names = TRUE)
+pheno_Multi_rat <- read_tsv("/Users/natashasanthanam/Downloads/rat_metabolic_MultiXcan_pval_assoc.txt", col_names = TRUE)
+```
+
+```{r}
+qqunif(full_df$pvalue, col= "dodgerblue4" )
+qqpoints(full_df %>% filter(gene %in% top_ptrs_genes$rat_gene) %>% .[["pvalue"]],pch='+', col = "dodgerblue") 
+
+qqunif(pheno_Multi_rat$pvalue.bodylength_w_tail, col= "dodgerblue4" )
+qqpoints(pheno_Multi_rat %>% filter(gene %in% top_ptrs_genes$rat_gene) %>% .[["pvalue.bodylength_w_tail"]],pch='+', col = "dodgerblue") 
+
+
+all_ptrs_genes <- weights_height %>%  filter(!(gene_name %in% top_ptrs_genes$gene_name)) %>% select(c(gene_name))
+all_ptrs_genes <-  all_ptrs_genes %>% mutate(rat_gene = orth.rats[match(all_ptrs_genes$gene_name, orth.rats$ensembl_gene_id), 3]$rnorvegicus_homolog_ensembl_gene)
+
+qqunif(full_df %>% filter(gene %in% all_ptrs_genes$rat_gene) %>% .[["pvalue"]])
+qqpoints(full_df %>% filter(gene %in% top_ptrs_genes$rat_gene) %>% .[["pvalue"]],pch='+', col = "dodgerblue") 
+
+
+full_df <- full_df %>% mutate(human_gene = orth.rats[match(full_df$gene, orth.rats$rnorvegicus_homolog_ensembl_gene), 1]$ensembl_gene_id)
 ```
 

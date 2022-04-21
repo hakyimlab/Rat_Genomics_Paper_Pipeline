@@ -117,7 +117,7 @@ for(fila in filelist) {
   pheno_Multi_rat<- full_join(pheno_Multi_rat, tempo, by = "gene")
 }
 
-pheno_Multi_rat <- read_tsv("/Users/natashasanthanam/Downloads/rat_metabolic_MultiXcan_pval_lasso_assoc.txt", col_names = TRUE)
+#pheno_Multi_rat <- read_tsv("/Users/natashasanthanam/Downloads/rat_metabolic_MultiXcan_pval_assoc.txt", col_names = TRUE)
 
 pheno_Multi_rat <- pheno_Multi_rat %>% mutate(gene_name = orth.rats[match(pheno_Multi_rat$gene, orth.rats$rnorvegicus_homolog_ensembl_gene),2]$external_gene_name)
 ```
@@ -129,76 +129,28 @@ devtools::source_gist("38431b74c6c0bf90c12f")
 devtools::source_gist("1e9053c8f35c30396429350a08f33ea7")
 ```
 
-```{r enrichment for BMI and Height}
+```{r enrichment for BMI and Height using prediXcan}
 full_df <- full_df %>% mutate(gene_name = orth.rats[match(full_df$gene, orth.rats$rnorvegicus_homolog_ensembl_gene), 2]$external_gene_name)
 
+
 qqunif(BMI_genes$pvalue, col= "maroon1" )
-BMI_genes_rats <- full_df %>% filter(metabolic_trait == "bmi_bodylength_wo_tail")  %>% filter(pvalue <= 0.05) %>% .[["gene_name"]]
+colnames(pheno_Multi_humans)[2] <- "pvalue_BMI"
+BMI_genes_rats <- full_df %>% filter(metabolic_trait == "Body Mass Index (BMI) with tail")  %>% filter(pvalue <= 0.05) %>% .[["gene_name"]]
 qqpoints(BMI_genes %>% filter(gene_name %in% BMI_genes_rats) %>% .[["pvalue"]],pch='+', col = "dodgerblue") 
 
 
 qqunif(height_genes$pvalue, col = "maroon1")
-height_genes_rats <- full_df %>% filter(metabolic_trait == "bodylength_w_tail") %>% filter(pvalue <= 0.05) %>% .[["gene_name"]]
+height_genes_rats <- full_df %>% filter(metabolic_trait == "Body length including tail") %>% filter(pvalue <= 0.05) %>% .[["gene_name"]]
 qqpoints(height_genes %>% filter(gene_name %in% height_genes_rats) %>% .[["pvalue"]],pch='+', col="dodgerblue")
 ```
 
+```{r enrichment with MultiXcan}
+qqunif(BMI_genes$pvalue, col= "maroon1")
+BMI_genes_rats <- pheno_Multi_rat  %>% filter(pvalue.bmi_bodylength_w_tail <= 0.05) %>% .[["gene_name"]] %>% na.omit()
+qqpoints(BMI_genes %>% filter(gene_name %in% BMI_genes_rats) %>% .[["pvalue"]],pch='+', col="dodgerblue")
 
-#Make enrichment plot but flip rats and humans
-
-Make three points
-```{r flipped enrichment plot in rasts for fasting glucose}
-qqunif(pheno_rats$fasting_glucose,main="Fasting Glucose Enrichment Plot in Rats")
-fasting_glucose_humans <- glucose_genes %>% filter(pvalue <= 0.01 && rcp >= 0.01) %>% .[["gene_name"]] %>% na.omit() 
-qqpoints(pheno_rats %>% filter(gene_name %in% fasting_glucose_humans ) %>% .[["fasting_glucose"]],pch='+', col=3)
+qqunif(height_genes$pvalue, col= "maroon1")
+height_genes_rats <- pheno_Multi_rat %>% filter(pvalue.bodylength_w_tail <= 0.05) %>% .[["gene_name"]] %>% na.omit()
+qqpoints(height_genes %>% filter(gene_name %in% height_genes_rats) %>% .[["pvalue"]],pch='+', col="dodgerblue")
 ```
-
-
-```{r flipped enrichment plot for epifat}
-qqunif(pheno_rats$epifat,main="Epfiat  Enrichment Plot in Rats")
-body_fat_humans <- body_fat_genes %>% filter(pvalue <= 0.01 && rcp >= 0.01) %>% .[["gene_name"]] %>% na.omit() 
-qqpoints(pheno_rats %>% filter(gene_name %in% body_fat_humans ) %>% .[["epifat"]],pch='+', col=3)
-
-qqunif(pheno_rats$parafat,main="Parafat  Enrichment Plot in Rats")
-qqpoints(pheno_rats %>% filter(gene_name %in% body_fat_humans ) %>% .[["parafat"]],pch='+', col=3)
-
-
-qqunif(pheno_rats$retrofat,main="Retrofat  Enrichment Plot in Rats")
-qqpoints(pheno_rats %>% filter(gene_name %in% body_fat_humans ) %>% .[["retrofat"]],pch='+', col=3)
-
-```
-
-
-```{r r flipped enrichment plot for height, obesity, BMI}
-qqunif(pheno_rats$bodylength_w_tail,main="Bodylength with Tail  Enrichment Plot in Rats")
-height_humans <- height_genes %>% filter(pvalue <= 0.05) %>% .[["gene_name"]] %>% na.omit() 
-qqpoints(pheno_rats %>% filter(gene_name %in% height_humans ) %>% .[["bodylength_w_tail"]],pch='+', col=3)
-
-qqunif(pheno_rats$bodylength_wo_tail,main="Bodylength without Tail  Enrichment Plot in Rats")
-qqpoints(pheno_rats %>% filter(gene_name %in% height_humans ) %>% .[["bodylength_wo_tail"]],pch='+', col=3)
-
-qqunif(pheno_rats$tail_length,main="Bodylength without Tail  Enrichment Plot in Rats")
-qqpoints(pheno_rats %>% filter(gene_name %in% height_humans ) %>% .[["tail_length"]],pch='+', col=3)
-
-
-qqunif(pheno_rats$bodyweight,main="Bodyweight Enrichment Plot in Rats")
-obesity_humans <- obesity_genes %>% filter(pvalue <= 0.01) %>% .[["gene_name"]] %>% na.omit() 
-qqpoints(pheno_rats %>% filter(gene_name %in% obesity_humans ) %>% .[["bodyweight"]],pch='+', col=3)
-
-
-qqunif(pheno_rats$fasting_glucose,main="Fasting Glucose Enrichment Plot in Rats")
-glucose_humans <- glucose_genes %>% filter(pvalue <= 0.01) %>% .[["gene_name"]] %>% na.omit() 
-glucose_humans <- glucose_genes %>% filter(pvalue <= 0.01 && rcp >= 0.01) %>% .[["gene_name"]] %>% na.omit() 
-qqpoints(pheno_rats %>% filter(gene_name %in% glucose_humans ) %>% .[["fasting_glucose"]],pch='+', col=3)
-
-qqunif(pheno_rats$bmi_bodylength_w_tail,main="BMI Enrichment Plot in Rats")
-BMI_humans <- BMI_genes %>% filter(pvalue <= 0.01) %>% .[["gene_name"]] %>% na.omit() 
-qqpoints(pheno_rats %>% filter(gene_name %in% BMI_humans ) %>% .[["bmi_bodylength_w_tail"]],pch='+', col=3)
-
-qqunif(pheno_rats$bmi_bodylength_wo_tail,main="BMI without tail Enrichment Plot in Rats")
-qqpoints(pheno_rats %>% filter(gene_name %in% BMI_humans ) %>% .[["bmi_bodylength_wo_tail"]],pch='+', col=3)
-```
-
-
-
-
 
