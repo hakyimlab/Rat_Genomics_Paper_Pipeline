@@ -141,7 +141,7 @@ for(fila in filelist) {
 } 
 #full_df <- read_tsv("/Users/natashasanthanam/Github/rat-genomic-analysis/data/rat_metabolic_traits_best_Ac_full_assocs.txt", col_names = TRUE)
 
-tempo_df <- full_df %>% filter(pvalue < 5.767678e-06)
+tempo_df <- full_df %>% filter(pvalue <  9.279881e-06)
 
 #428 sig genes
 tempo_df %>% group_by(gene) %>% summarise(n = n())
@@ -164,7 +164,7 @@ full_df$metabolic_trait[full_df$metabolic_trait == "epifat" ] <- "Epididymal fat
 full_df$metabolic_trait[full_df$metabolic_trait == "retrofat" ] <- "Retroperitoneal fat"
 full_df$metabolic_trait[full_df$metabolic_trait == "parafat" ] <- "Parametrial fat"
 
-full_df <- full_df %>% mutate(bf_sig = ifelse(full_df$pvalue <= 5.767678e-06, "Yes", "No"))
+full_df <- full_df %>% mutate(bf_sig = ifelse(full_df$pvalue <= 9.279881e-06, "Yes", "No"))
 ```
 
 
@@ -396,27 +396,6 @@ for(i in 2:ncol(pheno)) {
   write_tsv(df, data.dir %&% "prediXcan/metabolic_traits/associations/most_sig_zscores/" %&% trait %&% "_avg_zscore.txt", col_names = FALSE)
 }
 ```
-
-FUMA analysis
-```{r FUMA analysis, eval=TRUE}
-gene_annot_hum <- fread("/Users/natashasanthanam/GTEx-Analysis/annotations_gencode_v26.tsv")
-height_annot <- gene_annot_hum[na.omit(match(height_df$gene_name, gene_annot_hum$gene_name)),]
-height_annot <- height_annot %>% select(c(gene_name, chromosome, start))
-
-
-height_df <- full_df %>% filter(metabolic_trait == "bodylength_w_tail") %>% filter(pvalue <= 5.767678e-06) %>% select(c(gene_name)) %>% na.omit()
-height_df <- inner_join(height_df, height_annot, by = "gene_name") 
-height_df <- height_df %>% mutate(SNP = paste(height_df$chromosome, height_df$start, sep= ":")) %>% select(c(gene_name, SNP))
-
-
-bmi_annot <- gene_annot_hum[na.omit(match(bmi_df$gene_name, gene_annot_hum$gene_name)),]
-bmi_annot <- bmi_annot %>% select(c(gene_name, chromosome, start))
-bmi_df <-  full_df %>% filter(metabolic_trait == "bmi_bodylength_w_tail") %>% filter(pvalue <= 5.767678e-06) %>% select(c(gene_name)) %>% na.omit()
-
-bmi_df <- inner_join(bmi_df, bmi_annot, by = "gene_name") 
-bmi_df <- bmi_df %>% mutate(SNP = paste(bmi_df$chromosome, bmi_df$start, sep= ":")) %>% select(c(gene_name, SNP))
-```
-
 
 Loci Analysis
 
