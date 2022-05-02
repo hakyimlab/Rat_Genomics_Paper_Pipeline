@@ -279,8 +279,6 @@ for (k in 2:(length(filelist))){
 tempo_cor_df <- tempo %>% select(c(gene, starts_with("cor"))) %>% select(-c(cor_0.01))
 tempo_R2_df <- tempo %>% select(c(gene, starts_with("R"))) %>% select(-c(R_0.01))
 
-tempo_R2_df$Average = rowMeans(subset(tempo_R2_df, select = -c(gene)))
-tempo_R2_df <- tempo_R2_df %>% filter(Average >= 0.09)
 
 tempo_R2_df <- tempo_R2_df[sample(nrow(tempo_R2_df), 20), ]
 tempo_cor_df <- tempo_cor_df[sample(nrow(tempo_cor_df), 20), ]
@@ -291,7 +289,7 @@ tempo_cor_df <- tempo_cor_df[sample(nrow(tempo_cor_df), 20), ]
 # Plot Sparsity for GTEx
 
 ```{r}
-data_long <- tempo_R2_df %>% select(-c(Average)) %>%  pivot_longer(!gene, names_to = "value", values_to = "count") 
+data_long <- tempo_R2_df  %>%  pivot_longer(!gene, names_to = "value", values_to = "count") 
 data_long$value = as.numeric(substr(data_long$value, 4, str_length(data_long$value)))
 
 p1 <-  ggplot(data_long, aes(x = as.numeric(value), y = count)) + geom_smooth(method = "loess", span = 2, show_guide = FALSE, se=T, size = .5, col = "maroon1")  +  xlab(expression(paste("Elastic net mixing parameter (",alpha, ")"))) + ylab(expression(paste("10-fold cross-validated R2")))

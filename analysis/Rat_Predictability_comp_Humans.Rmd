@@ -293,8 +293,6 @@ Calculate R2 across GTEx Tissues
 model.dir <- "/gpfs/data/im-lab/nas40t2/Data/PredictDB/GTEx_v8/models_v1/eqtl/elastic_net_models/"
 
 filelist <- c("en_Brain_Amygdala.db", "en_Brain_Cerebellum.db", "en_Brain_Nucleus_accumbens_basal_ganglia.db", "en_Brain_Spinal_cord_cervical_c-1.db", "en_Brain_Substantia_nigra.db")
-
-w
 ```
 
 
