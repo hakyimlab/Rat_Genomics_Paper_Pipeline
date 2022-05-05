@@ -8,9 +8,6 @@ output: html_document
 ```{r setup, include=FALSE}
 library(tidyverse)
 library(data.table)
-library(readxl)
-library(qqman)
-library(arrow)
 library(RSQLite)
 library(glmnet)
 "%&%" = function(a,b) paste(a,b,sep="")
@@ -123,7 +120,6 @@ for(i in 1:ncol(tempo)){
 
 bodylength_w_tail_cor <- data.frame(cor = numeric(), pvalue = numeric(), model = character(), n_genes_in_model = numeric(), conf.int.min = numeric(), conf.int.max = numeric())
 for(i in 1:ncol(tempo)){
-  fit = lm(bodylength_w_tail$bodylength_w_tail ~ tempo[,i])
   bodylength_w_tail_cor[i,1] <- cor.test(bodylength_w_tail$bodylength_w_tail, tempo[,i])$estimate
   bodylength_w_tail_cor[i,2] <- cor.test(bodylength_w_tail$bodylength_w_tail, tempo[,i])$p.value
   bodylength_w_tail_cor[i,3] <- paste("model", i, sep = "_")
@@ -142,7 +138,7 @@ total_height_df <- total_height_df %>% select(c(model, n_genes_in_model.x, cor, 
 ggplot(bodylength_w_tail_cor, aes(n_genes_in_model, cor)) + geom_errorbar(aes(ymin = conf.int.min, ymax = conf.int.max ), width=0.2,  color="gray48") + ylim(c(0,0.1)) + geom_point(position="jitter") +geom_line() + xlab("Number of genes in each model") + ylab("Correlation Coefficient (r)") 
 
 
-ggplot(bmi_w_tail_cor, aes(n_genes_in_model, cor)) + geom_errorbar(aes(ymin = conf.int.min, ymax = conf.int.max ), width=0.2,  color="gray48") + geom_point(position="jitter") +geom_line() +  xlab("Number of genes in each model") + ylab("Correlation Coefficient (r)") 
+ggplot(bmi_w_tail_cor, aes(n_genes_in_model, cor)) + geom_errorbar(aes(ymin = conf.int.min, ymax = conf.int.max ), width=0.2,  color="gray48") + ylim(c(0,0.1)) + geom_point(position="jitter") +geom_line() +  xlab("Number of genes in each model") + ylab("Correlation Coefficient (r)") 
 ```
 
 # Create and Plot Negative Control

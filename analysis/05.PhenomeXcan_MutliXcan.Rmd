@@ -14,13 +14,8 @@ output: html_document
 
 ```{r setup, include=FALSE}
 library(tidyverse)
-library(devtools)
-library(broom)
 library(data.table)
 library(RSQLite)
-library(qqman)
-library(ggrepel)
-library(ggpubr)
 "%&%" = function(a,b) paste(a,b,sep="")
 data.dir <- "/Users/natashasanthanam/Github/rat-genomic-analysis/"
 ```
@@ -101,7 +96,7 @@ attributes <- listAttributes(human)
 attributes = c("ensembl_gene_id", "external_gene_name", "rnorvegicus_homolog_ensembl_gene", "rnorvegicus_homolog_associated_gene_name")
 orth.rats = getBM(attributes, filters="with_rnorvegicus_homolog",values=TRUE, mart = human, uniqueRows=TRUE)
 
-human_genes <- human_genes %>% rename(external_gene_name = `pheno_Multi_humans$gene_name`)
+human_genes <- human_genes %>% dplyr::rename(external_gene_name = `pheno_Multi_humans$gene_name`)
 human_genes <- inner_join(human_genes, orth.rats, by = "external_gene_name") %>% dplyr::select(c(external_gene_name, rnorvegicus_homolog_associated_gene_name))
 ```
 
@@ -145,9 +140,9 @@ qqpoints(height_genes %>% filter(gene_name %in% height_genes_rats) %>% .[["pvalu
 ```
 
 ```{r enrichment with MultiXcan}
-qqunif(BMI_genes$pvalue, col= "maroon1")
-BMI_genes_rats <- pheno_Multi_rat  %>% filter(pvalue.bmi_bodylength_w_tail <= 0.05) %>% .[["gene_name"]] %>% na.omit()
-qqpoints(BMI_genes %>% filter(gene_name %in% BMI_genes_rats) %>% .[["pvalue"]],pch='+', col="dodgerblue")
+qqunif(BMI_genes$pvalue, col= "maroon1") 
+BMI_genes_rats <- pheno_Multi_rat  %>% filter(pvalue.bmi_bodylength_wo_tail <= 0.05) %>% .[["gene_name"]] %>% na.omit()
+qqpoints(BMI_genes %>% filter(gene_name %in% BMI_genes_rats) %>% .[["pvalue"]],pch='+', col="dodgerblue") 
 
 qqunif(height_genes$pvalue, col= "maroon1")
 height_genes_rats <- pheno_Multi_rat %>% filter(pvalue.bodylength_w_tail <= 0.05) %>% .[["gene_name"]] %>% na.omit()
