@@ -161,10 +161,9 @@ full_ptrs_cor =  bodylength_w_tail_cor %>% filter(model == "model_35") %>% selec
 full_ptrs_cor$model = 0
 
 prs_ptrs_cor <- rbind(prs_ptrs_cor, full_ptrs_cor)
-prs_ptrs_cor <- prs_ptrs_cor %>% mutate(type_model = NA)
-if
+prs_ptrs_cor <- prs_ptrs_cor %>% mutate(type_model = c("PTRS+PRS", "PTRS+PRS", "PTRS+PRS", "PTRS+PRS", "PTRS+PRS", "PTRS+PRS", "PTRS+PRS", "PTRS+PRS", "PTRS+PRS", "PRS only", "PTRS only"))
 
-ggplot(prs_ptrs_cor, aes(model, cor))  + geom_errorbar(aes(ymin = conf.int.min, ymax = conf.int.max ), width=0.2,  color="gray48") + geom_point()
+ggplot(prs_ptrs_cor, aes(model, cor))  + geom_errorbar(aes(ymin = conf.int.min, ymax = conf.int.max ), width=0.2,  color="gray48") + geom_point(col = ifelse(prs_ptrs_cor$type_model == "PTRS only", "dodgerblue", "black")) + ylab("Correlation Coefficient (r)") + xlab("Weight of PRS")
 ```
 
 
