@@ -163,7 +163,40 @@ full_ptrs_cor$model = 0
 prs_ptrs_cor <- rbind(prs_ptrs_cor, full_ptrs_cor)
 prs_ptrs_cor <- prs_ptrs_cor %>% mutate(type_model = c("PTRS+PRS", "PTRS+PRS", "PTRS+PRS", "PTRS+PRS", "PTRS+PRS", "PTRS+PRS", "PTRS+PRS", "PTRS+PRS", "PTRS+PRS", "PRS only", "PTRS only"))
 
-ggplot(prs_ptrs_cor, aes(model, cor))  + geom_errorbar(aes(ymin = conf.int.min, ymax = conf.int.max ), width=0.2,  color="gray48") + geom_point(col = ifelse(prs_ptrs_cor$type_model == "PTRS only", "dodgerblue", "black")) + ylab("Correlation Coefficient (r)") + xlab("Weight of PRS")
+ggplot(prs_ptrs_cor, aes(model, cor))  + geom_errorbar(aes(ymin = conf.int.min, ymax = conf.int.max ), width=0.2,  color="gray48") + geom_point(col = ifelse(prs_ptrs_cor$type_model == "PTRS only", "dodgerblue2", "black")) + ylab("Correlation Coefficient (r)") + xlab("Weight of PRS")
 ```
 
+correlation between PRS and PTRS
+```{r}
+ptrs <- readRDS(dir %&% "rat_pred_height_w_Human_best_PTRS.RDS") 
+ptrs <- ptrs[na.omit(match(prs$FID, rownames(ptrs))), ]
+cor.test(prs$PRS, ptrs[,36])
+
+summary(lm(pheno_height$bodylength_w_tail ~ prs$PRS + ptrs[,36]))
+
+summary(lm(formula = pheno_height$bodylength_w_tail ~ prs$PRS))
+
+summary(lm(formula = pheno_height$bodylength_w_tail ~ ptrs[,36]))
+
+
+bodylength_w_tail <- pheno %>% dplyr::select(c(rat_rfid, bodylength_w_tail)) %>% na.omit()
+tempo <- pred_height[na.omit(match(bodylength_w_tail$rat_rfid, rownames(pred_height))), ]
+all_ptrs <- data.frame(PTRS = tempo[,36], pheno = bodylength_w_tail$bodylength_w_tail)
+all_ptrs <- all_ptrs %>% mutate(test_set = ifelse(rownames(all_ptrs) %in% pheno_height$rat_rfid, "TRUE", "FALSE"))
+
+ggplot(all_ptrs, aes(PTRS, pheno)) + geom_point(col = ifelse(all_ptrs$test_set == "TRUE", "blue", "black")) + geom_smooth(color = "darkgrey") 
+
+
+prs <- prs %>% select(c(FID, PRS))
+ptrs_best_genes <- as.data.frame(pred_height) %>% mutate(FID = rownames(pred_height), .before = "model_0") %>% select(c(FID, "model_34")) %>% rename(PTRS_best_genes = model_34)
+bodylength <- pheno %>% select(c(rat_rfid, bodylength_w_tail)) %>% rename(FID = rat_rfid)
+
+ptrs_all_genes <- readRDS(dir %&% "rat_pred_height_PTRS.RDS") 
+ptrs_all_genes <- ptrs_all_genes %>% data.frame() %>% mutate(FID = rownames(ptrs_all_genes), .before = "model_0") %>% select(c(FID, "model_34")) %>% filter(!(FID  %in% all_rats$ID)) %>% rename(PTRS_all_genes= model_34)
+
+all_ptrs <- full_join(ptrs_all_genes, ptrs_best_genes, by = "FID")
+prs_pheno <- full_join(prs, bodylength, by = "FID")
+
+all_tibbles <- full_join(all_ptrs, prs_pheno, by = "FID")
+```
 
