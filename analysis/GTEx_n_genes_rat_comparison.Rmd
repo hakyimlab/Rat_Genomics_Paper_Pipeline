@@ -134,7 +134,7 @@ saveRDS(as.matrix(expression), geno.dir %&% TISSUE %&% "_expression_transformed.
 
 Find intersection of genes across all GTEx tissues and Rats
 ```{r find common genes, eval=FALSE}
-filelist = list.files(geno.dir, pattern = "expression_transformed.RDS", full.names = TRUE)
+filelist = list.files(geno.dir %&% "expression" , pattern = "expression_transformed.RDS", full.names = TRUE)
 names <- data.frame(gene = readRDS(filelist[1]) %>% colnames())
 
 for(fila in filelist[2:length(filelist)]) {
@@ -162,13 +162,13 @@ overlap <- overlap %>% mutate(rat_gene = orth.rats[match(overlap$human_gene, ort
 
 Filter for only overlapped genes in expression files
 ```{r filter for common genes, eval=FALSE}
-filelist = list.files(geno.dir, pattern = "expression_transformed.RDS", full.names = TRUE)
+filelist = list.files(geno.dir %&% "expression", pattern = "expression_transformed.RDS", full.names = TRUE)
 for(fila in filelist) {
   tempo <- readRDS(fila)
   colnames(tempo) = sapply(strsplit(colnames(tempo), "\\."), `[`, 1)
   tempo <- tempo[, overlap$human_gene]
   tis = substr(fila, 73, str_length(fila) - 27)
-  saveRDS(tempo, geno.dir %&% tis %&% "_expression_abrv.RDS")
+  saveRDS(tempo, geno.dir %&% ttis %&% "_expression_abrv.RDS")
 }
 ```
 

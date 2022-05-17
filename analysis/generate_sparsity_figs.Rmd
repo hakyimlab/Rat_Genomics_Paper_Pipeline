@@ -11,17 +11,28 @@ library(data.table)
 library(ggplot2)
 library(RSQLite)
 dir <- "/Users/natashasanthanam/Github/rat-genomic-analysis/data/"
+data.dir <- "/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/"
 source("./Rat_Genomics_Paper_Pipeline/analysis/02.Prediction_Model_Pipeline.Rmd")
 ```
+## Subset genes used in prediction to those that have an analog in GTEx tissues
+we will use this for comparison later
+```{r subset genes}
+overlap <- read_tsv(data.dir %&% "Box_files/overlap_rat_genes_GTEx.txt", col_names = TRUE)  # genes that are present in both rat expression data and in GTEx
+
+expr_Ac <- readRDS(data.dir %&% "expression/Ac_expression_transformed.RDS")
+expr_Ac <- expr_Ac[, intersect(colnames(expr_Ac), overlap$rat_gene)]
+saveRDS(expr_Ac, data.dir %&% "expression/Ac_expression_intesrect_GTEx.RDS")
+```
+
 
 ## Generate R2 predictions for all elastic net parameters between 0 and 1
 
 We run the same Prediction Model Pipeline only for Ac tissue. However this time, I didn't break it down into chromosome. This takes longer but means you have less files, a file for each alpha parameter. 
 
 ```{bash}
-for i in {0..1..0.1}
+for i in $(seq 0 0.1 1.0)
 do
-Rscript --vanilla ./Rat_Genomics_Paper_Pipeline/analysis/prediction_pipeline_all_alphas_EN.R $i 
+qsub -v alpha=$i sparsity_rats_pipeline.pbs
 done
 ```
 

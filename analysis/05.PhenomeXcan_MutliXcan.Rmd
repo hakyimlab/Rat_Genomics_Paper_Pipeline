@@ -149,3 +149,12 @@ height_genes_rats <- pheno_Multi_rat %>% filter(pvalue.bodylength_w_tail <= 0.05
 qqpoints(height_genes %>% filter(gene_name %in% height_genes_rats) %>% .[["pvalue"]],pch='+', col="dodgerblue")
 ```
 
+```{r calculate Enrichment value with MW test}
+all_bmi_genes <- BMI_genes %>% mutate(in_rats = ifelse(BMI_genes$gene_name %in% BMI_genes_rats, 1, 0))
+
+all_height_genes <- height_genes %>% mutate(in_rats = ifelse(height_genes$gene_name %in% height_genes_rats, 1, 0))
+  
+wilcox.test(pvalue ~ in_rats, data=all_bmi_genes) 
+wilcox.test(pvalue ~ in_rats, data=all_height_genes) 
+```
+

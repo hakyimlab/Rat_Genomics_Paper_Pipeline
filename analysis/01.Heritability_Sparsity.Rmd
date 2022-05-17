@@ -557,7 +557,6 @@ sqlite.driver <- dbDriver("SQLite")
 conn <- dbConnect(RSQLite::SQLite(), filename)
 
 extra <- dbGetQuery(conn, 'select * from extra')
-extra <- extra[, c(1,2,4,3,5,6)]
 dbDisconnect(conn)
 ```
 
@@ -580,6 +579,7 @@ plt_1 <- (ggplot(data = A_df_Ac, aes(x = index))
                          alpha = 0.25)
           + labs(x = 'Genes Sorted by Proportion of Variance Explained (PVE)',
                  y = 'PVE')
+           + ylim(c(0,1))
            + annotate("text", x = 1250, y = 0.9, label = "Mean h2 =  0.098", size = 6)
            + annotate("text", x = 1250, y = 0.8, label = "Mean R2 =  0.085", size = 6)) 
 plt_1
