@@ -168,7 +168,7 @@ for(fila in filelist) {
   colnames(tempo) = sapply(strsplit(colnames(tempo), "\\."), `[`, 1)
   tempo <- tempo[, overlap$human_gene]
   tis = substr(fila, 73, str_length(fila) - 27)
-  saveRDS(tempo, geno.dir %&% ttis %&% "_expression_abrv.RDS")
+  saveRDS(tempo, geno.dir %&% txis %&% "_expression_abrv.RDS")
 }
 ```
 

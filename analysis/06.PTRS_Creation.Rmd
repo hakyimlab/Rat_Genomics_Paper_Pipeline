@@ -140,7 +140,7 @@ total_height_df <- total_height_df %>% select(c(model, n_genes_in_model.x, cor, 
 ggplot(bodylength_w_tail_cor, aes(n_genes_in_model, cor)) + geom_errorbar(aes(ymin = conf.int.min, ymax = conf.int.max ), width=0.2,  color="gray48") + ylim(c(0,0.1)) + geom_point(position="jitter") +geom_line() + xlab("Number of genes in each model") + ylab("Correlation Coefficient (r)") 
 
 
-ggplot(bmi_w_tail_cor, aes(n_genes_in_model, cor)) + geom_errorbar(aes(ymin = conf.int.min, ymax = conf.int.max ), width=0.2,  color="gray48") + ylim(c(-0.05 ,0.1)) + geom_point(position="jitter") +geom_line() +  xlab("Number of genes in each model") + ylab("Correlation Coefficient (r)") 
+ggplot(bmi_w_tail_cor, aes(n_genes_in_model, cor)) + geom_errorbar(aes(ymin = conf.int.min, ymax = conf.int.max ), width=0.2,  color="gray48") + ylim(c(0 ,0.1)) + geom_point(position="jitter") +geom_line() +  xlab("Number of genes in each model") + ylab("Correlation Coefficient (r)") 
 ```
 
 # Create and Plot Negative Control

@@ -40,32 +40,28 @@ done
 Now we have predictability for all parameters of alpha. We can now iterate through all alphas and create the long data format. We also only select for genes that have an average cor > 0.3 and subsample 20 genes. 
 ```{r create long format for genes, eval=FALSE}
 ldf <- list() # creates a list
-listtsv <- dir(path = dir, pattern = "working_TW_Ac_exp_10-foldCV_elasticNet_alpha", full.names = TRUE) # creates the list of all the tsv files in the directory
+listtsv <- list.files(path = dir, pattern = "working_TW_Ac_exp_10-foldCV_elasticNet_alpha", full.names = TRUE) # creates the list of all the tsv files in the directory
 tempo <- read_tsv(listtsv[1], col_names = TRUE) 
-tempo$R2 = tempo$R2*sign(tempo$cor)
-tempo <- tempo %>% select(c(gene, R2))
-colnames(tempo)[2] = "0.1"
+tempo <- tempo %>% select(c(gene, cor))
+colnames(tempo)[2] = "0"
 
 for (k in 2:length(listtsv)){
  ldf[[k]] <- read_tsv(listtsv[k], col_names = TRUE)
  alpha <- substr(listtsv[k], 107, str_length(listtsv[k]) - 13)
  fila <- as.data.frame(ldf[[k]]) 
- fila$R2 = fila$R2*sign(fila$cor)
- fila <- fila %>% select(c(gene, R2)) 
+ fila <- fila %>% select(c(gene, cor)) 
  colnames(fila)[2] = alpha
  tempo <- inner_join(tempo, fila, by = "gene")
- 
 }
 ```
 
 Plot results of r for all parameers of alpha
 ```{r plot all resuls, eval=FALSE}
-tempo <- read_tsv(dir %&% "rat_elasticNet_cor.txt", col_names = TRUE)
-tempo <- read_tsv("/Users/natashasanthanam/Downloads/rat_Ac_elasticNet_R2.txt", col_names = TRUE)
+tempo <- read_tsv("/Users/natashasanthanam/Downloads/rat_elastic_net_all_parameters_GTEx_only_genes.txt", col_names = TRUE)
 
 data_long <- tempo  %>%   pivot_longer(!gene, names_to = "value", values_to = "count")
    
-p1 <-  ggplot(data_long, aes(x = as.numeric(value), y = count)) + geom_smooth(show_guide = FALSE, se=T, size = .5, col = "dodgerblue2")  +  xlab(expression(paste("Elastic net mixing parameter (",alpha, ")"))) + ylab(expression(paste("10-fold cross-validated R2")))
+p1 <-  ggplot(data_long, aes(x = as.numeric(value), y = count)) + geom_smooth(show_guide = FALSE, se=T, size = .5, col = "dodgerblue2")  +  xlab(expression(paste("Elastic net mixing parameter (",alpha, ")"))) + ylab(expression(paste("10-fold cross-validated R")))
 
 p2 = ggplot(tempo, aes(x = `0`, y = `0.5`)) + geom_hex(bins = 50)   +
       geom_abline(slope = 1, intercept = 0, color = "darkgrey", size = 0.8) +

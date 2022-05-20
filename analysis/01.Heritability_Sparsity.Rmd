@@ -562,12 +562,20 @@ dbDisconnect(conn)
 
 Next we create the ordered plot for heritability for Ac. We use PVE as h2, the proportion of variance in phenotypes explained by typed genotypes. 
 ```{r}
+human_h2 <- read_csv("/Users/natashasanthanam/Github/rat-genomic-analysis/data/human_PVE.csv") %>% rename(point_estimate = pve) 
 PVE_Ac <- read_tsv(poly_dir %&% "Ac_PVE_estimates.txt", col_names = FALSE)
+
+human_h2$ensid = sapply(strsplit(human_h2$ensid, "\\."), `[`, 1)
+colnames(PVE_Ac) <- c("gene", "point_estimate", "credible_set_1", "credible_set_2")
+
+overlap <- data.frame(rat_genes = PVE_Ac$gene, ensid = orth.rats[match(PVE_Ac$gene, orth.rats$rnorvegicus_homolog_ensembl_gene), 1]$ensembl_gene_id) 
+overlap <- overlap[na.omit(match(human_h2$ensid, overlap$ensid)), ]
+
+PVE_Ac <- PVE_Ac %>% filter(gene %in% overlap$rat_genes)
 ```
 
 
 ```{r}
-colnames(PVE_Ac) <- c("gene", "point_estimate", "credible_set_1", "credible_set_2")
 PVE_Ac <- inner_join(PVE_Ac, extra, by = "gene")
 
 A_df_Ac <- load_pve(PVE_Ac)
@@ -599,10 +607,10 @@ select gene, ensid, en_r2 ,pve,pve_CI from results where tissue = "DGN-WB";
 ```
 
 ```{r plot human h2}
-human_h2 <- read_csv("/Users/natashasanthanam/Github/rat-genomic-analysis/data/human_PVE.csv") %>% rename(point_estimate = pve) 
-
 human_h2$credible_set_1 = as.numeric(ifelse(substr(human_h2$pve_CI ,1,1) == "-", paste("-", sapply(strsplit(human_h2$pve_CI, "-"), `[`, 2), sep = ""), sapply(strsplit(human_h2$pve_CI, "-"), `[`, 1)))
 human_h2$credible_set_2 = as.numeric(ifelse(substr(human_h2$pve_CI ,1,1) == "-", sapply(strsplit(human_h2$pve_CI, "-"), `[`, 3), sapply(strsplit(human_h2$pve_CI, "-"), `[`, 2)))
+
+human_h2 <- human_h2 %>% filter(ensid %in% overlap$ensid)
 
 hum_df <- load_pve(human_h2)
 plt_2  <- (ggplot(data = hum_df, aes(x = index))
@@ -614,9 +622,9 @@ plt_2  <- (ggplot(data = hum_df, aes(x = index))
           + labs(x = 'Genes Sorted by Proportion of Variance Explained (PVE)',
                  y = 'PVE')
           + ylim(c(0,1))
-           + annotate("text", x = 1590, y = 1.0, label = "Mean h2 =  0.129", size = 6)
-           + annotate("text", x = 1550, y = 0.9, label = "Mean R2 =  0.119", size = 6)) 
-plt_2
+           + annotate("text", x = 1690, y = 0.9, label = "Mean h2 =  0.124", size = 6)
+           + annotate("text", x = 1710, y = 0.8, label = "Mean R2 =  0.114", size = 6))
+plt_2 
 ```
 
 ```{r}
