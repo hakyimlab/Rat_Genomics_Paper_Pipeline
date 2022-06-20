@@ -1,0 +1,202 @@
+---
+title: "09.PRS_Rats"
+author: "Natasha Santhanam"
+date: "5/4/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(data.table)
+library(RSQLite)
+library(ggpubr)
+"%&%" = function(a,b) paste(a,b,sep="")
+dir <- "/Users/natashasanthanam/Github/rat-genomic-analysis/data/"
+geno.dir <- "/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/"
+```
+
+## Run PRSice in Rats 
+
+# Run GWAS in rats for bodylength
+
+first extract out 500 random rats that we'll use as baseline
+```{r subsampel 500 random rats}
+fam <- fread(geno.dir %&% "Box_files/rat_genotypes_LD_pruned_0.95/plink_format/rat_metabolic_impute.fam")
+all_names <- fread(geno.dir %&% "Box_files/all_names.txt")
+
+fam <- fam %>% filter(!(V2 %in% all_names$ID))
+base_ref <- data.frame(FID = sample(fam$V2, 500)) %>% mutate(ID = FID)
+write_tsv(base_ref, geno.dir %&% "PTRS_weights/PRSice_Rats/PRSice_rats_reference_names.txt", col_names = FALSE)
+```
+
+
+```{bash generate plink files, eval=FALSE}
+# remove any overlap of training rats
+export DIR=/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/PTRS_weights/PRSice_Rats/
+plink --bfile rat_metabolic_impute --remove $DIR/all_training_rats.txt  --make-bed --out rat_metabolic_abrv
+
+#remove 500 rats that will later be used in baseline reference
+plink --bfile rat_metabolic_abrv --remove $DIR/PRSice_rats_reference_names.txt --make-bed --out $DIR/rat_metabolic_PRSice
+
+#create plink files for reference
+plink --bfile rat_metabolic_abrv --keep $DIR/PRSice_rats_reference_names.txt --make-bed --out $DIR/rat_reference_PRSice
+```
+
+```{r create phenotype file, eval=FALSE}
+fam <- read.table(DIR %&% "/rat_metabolic_PRSice.fam")
+pheno <- read_tsv(geno.dir %&% "Box_files/processed_obesity_rat_Palmer_phenotypes.tsv") %>% select(c(rat_rfid, bodylength_w_tail))
+pheno_all <- pheno[na.omit(match(fam$V1, pheno$rat_rfid)),]
+
+pheno_all <- pheno_all %>% mutate(ID = rat_rfid, .before = "rat_rfid")
+write_tsv(pheno_all, DIR %&% "bodylength_phenotype_PRSice.phe", col_names = FALSE)
+
+pheno_ref <- pheno[na.omit(match(base_ref$FID, pheno$rat_rfid)),] 
+pheno_ref <- pheno_ref %>% mutate(IID = pheno_ref$rat_rfid, .before = "rat_rfid")
+write_tsv(pheno_ref, DIR %&% "bodylength_phenotype_ref_PRSice.phe", col_names = FALSE)
+```
+
+```{bash run GWAS, eval=FALSE}
+plink --bfile rat_metabolic_PRSice --pheno bodylength_phenotype_PRSice.phe --assoc --out PRSIce_bodylength_assoc
+```
+
+# Run PRSice
+```{r add effect allele to GWAS}
+gwas <- fread(geno.dir %&% "PTRS_weights/PRSice_Rats/PRSIce_bodylength_assoc.qassoc")
+bim <- fread(geno.dir %&% "PTRS_weights/PRSice_Rats/rat_metabolic_PRSice.bim")
+
+#table(bim$V2 == gwas$SNP)
+gwas <- gwas %>% mutate(A1 = bim$V5, .before = "BP")
+write_tsv(gwas, "/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/PTRS_weights/PRSice_Rats/PRSIce_bodylength_assoc_imputed.text",  col_names = TRUE)
+```
+
+
+
+```{bash}
+ PRSice --base PRSIce_bodylength_assoc_imputed.text \
+    --snp SNP \
+    --chr CHR \
+    --bp BP \
+    --pvalue P \
+    --A1 A1 \
+    --binary-target F \
+    --beta \
+    --stat BETA \
+    --target rat_reference_PRSice  \
+    --pheno bodylength_phenotype_ref_PRSice.phe \
+    --out rat_metabolic_PRSice
+```
+
+
+# Evaluate performance of PRSice
+
+Plot performance as a function of pvalue threshold
+```{r plot perf of PRSice as function of pval}
+prsice_perf <- read_tsv(dir %&% "rat_metabolic_PRSice.prsice", col_names = TRUE)
+ggplot(prsice_perf, aes(-log10(Threshold), -log10(P))) + geom_point()
+```
+Check Correlation between observed bodylength and PRS from PRSice
+
+```{r read in weights and expression for Framingham, eval=FALSE}
+prs <- fread(dir %&% "rat_metabolic_PRSice.best")
+
+all_rats <- read_tsv(dir %&% "all_names.txt", col_names = TRUE)
+pheno <- read_csv(dir %&% "processed_obesity_rat_Palmer_phenotypes.csv") %>% dplyr::select(c(rat_rfid, bodylength_w_tail))
+pheno <- pheno %>% filter(!(rat_rfid  %in% all_rats$ID))
+```
+
+```{r corrleation with PRSice, eval=FALSE}
+pheno_height <- pheno[na.omit(match(prs$FID, pheno$rat_rfid)),] %>% na.omit()
+
+tempo <- prs[na.omit(match(pheno$rat_rfid, prs$FID)),]
+tempo <- tempo[match(pheno_height$rat_rfid, tempo$FID), ]
+
+PRSice_height <- data.frame(estimate = numeric(), pvalue = numeric(), conf.int.min = numeric(), conf.int.max = numeric() )
+ 
+  PRSice_height[1,1] <- cor.test(pheno_height$bodylength_w_tail, tempo$PRS)$estimate
+  PRSice_height[1,2] <- cor.test(pheno_height$bodylength_w_tail, tempo$PRS)$p.value
+  PRSice_height[1,3] <- cor.test(pheno_height$bodylength_w_tail, tempo$PRS)$conf.int[1]
+  PRSice_height[1,4] <- cor.test(pheno_height$bodylength_w_tail, tempo$PRS)$conf.int[2]
+```
+
+
+# Test PTRS PRS as a weighted sum
+
+
+```{r match ptrs IDs to prs}
+ptrs_height <- readRDS(dir %&% "rat_pred_height_w_Human_best_PTRS.RDS") %>% as.data.frame()  %>% select(c(model_35)) 
+ptrs_height <- ptrs_height %>% mutate(FID = rownames(ptrs_height), .before = "model_35")
+
+ptrs_height <- ptrs_height[na.omit(match(prs$FID, ptrs_height$FID)), ]
+```
+
+```{r create different ptrs prs combinations}
+prs_ptrs_df <- data.frame(matrix(NA, nrow = 500, ncol = 10))
+ratios = seq(0.1, 1.0, 0.1)
+for(i in 1:10) {
+   index <- ratios[i]
+   prs_ptrs_df[,i] <- (prs$PRS*index)+(ptrs_height$model_35*(1-index))
+   colnames(prs_ptrs_df)[i] = paste("PRS", index, sep = "_")
+}
+prs_ptrs_df <- prs_ptrs_df %>% mutate(FID = prs$FID, .before = colnames(prs_ptrs_df)[1])
+```
+
+```{r test all combinations of prs ptrs on observed phenotype}
+pheno_height <- pheno_height[match(prs_ptrs_df$FID, pheno_height$rat_rfid), ]
+
+prs_ptrs_cor <- data.frame(cor = numeric(), pvalue = numeric(), model = character(), conf.int.min = numeric(), conf.int.max = numeric())
+for(j in 2:ncol(prs_ptrs_df)) {
+  prs_ptrs_cor[j-1, 1] <- cor.test(pheno_height$bodylength_w_tail, prs_ptrs_df[,j])$estimate
+  prs_ptrs_cor[j-1, 2] <- cor.test(pheno_height$bodylength_w_tail, prs_ptrs_df[,j])$p.value
+  prs_ptrs_cor[j-1, 3] <- colnames(prs_ptrs_df)[j]
+  prs_ptrs_cor[j-1, 4] <- cor.test(pheno_height$bodylength_w_tail, prs_ptrs_df[,j])$conf.int[1]
+  prs_ptrs_cor[j-1, 5] <- cor.test(pheno_height$bodylength_w_tail, prs_ptrs_df[,j])$conf.int[2]
+}
+```
+
+# Plot PRS vs PTRS
+
+```{r plot PRS, eval=FALSE}
+prs_ptrs_cor$model = as.numeric(sapply(strsplit(prs_ptrs_cor$model, "_"), `[`, 2))
+full_ptrs_cor =  bodylength_w_tail_cor %>% filter(model == "model_35") %>% select(-c(n_genes_in_model))
+full_ptrs_cor$model = 0
+
+prs_ptrs_cor <- rbind(prs_ptrs_cor, full_ptrs_cor)
+prs_ptrs_cor <- prs_ptrs_cor %>% mutate(type_model = c("PTRS+PRS", "PTRS+PRS", "PTRS+PRS", "PTRS+PRS", "PTRS+PRS", "PTRS+PRS", "PTRS+PRS", "PTRS+PRS", "PTRS+PRS", "PRS only", "PTRS only"))
+
+ggplot(prs_ptrs_cor, aes(model, cor))  + geom_errorbar(aes(ymin = conf.int.min, ymax = conf.int.max ), width=0.2,  color="gray48") + geom_point(col = ifelse(prs_ptrs_cor$type_model == "PTRS only", "dodgerblue2", "black")) + ylab("Correlation Coefficient (r)") + xlab("Weight of PRS")
+```
+
+correlation between PRS and PTRS
+```{r}
+ptrs <- readRDS(dir %&% "rat_pred_height_w_Human_best_PTRS.RDS") 
+ptrs <- ptrs[na.omit(match(prs$FID, rownames(ptrs))), ]
+cor.test(prs$PRS, ptrs[,36])
+
+summary(lm(pheno_height$bodylength_w_tail ~ prs$PRS + ptrs[,36]))
+
+summary(lm(formula = pheno_height$bodylength_w_tail ~ prs$PRS))
+
+summary(lm(formula = pheno_height$bodylength_w_tail ~ ptrs[,36]))
+
+
+bodylength_w_tail <- pheno %>% dplyr::select(c(rat_rfid, bodylength_w_tail)) %>% na.omit()
+tempo <- pred_height[na.omit(match(bodylength_w_tail$rat_rfid, rownames(pred_height))), ]
+all_ptrs <- data.frame(PTRS = tempo[,36], pheno = bodylength_w_tail$bodylength_w_tail)
+all_ptrs <- all_ptrs %>% mutate(test_set = ifelse(rownames(all_ptrs) %in% pheno_height$rat_rfid, "TRUE", "FALSE"))
+
+ggplot(all_ptrs, aes(PTRS, pheno)) + geom_point(col = ifelse(all_ptrs$test_set == "TRUE", "blue", "black")) + geom_smooth(color = "darkgrey") 
+
+
+prs <- prs %>% select(c(FID, PRS))
+ptrs_best_genes <- as.data.frame(pred_height) %>% mutate(FID = rownames(pred_height), .before = "model_0") %>% select(c(FID, "model_34")) %>% rename(PTRS_best_genes = model_34)
+bodylength <- pheno %>% select(c(rat_rfid, bodylength_w_tail)) %>% rename(FID = rat_rfid)
+
+ptrs_all_genes <- readRDS(dir %&% "rat_pred_height_PTRS.RDS") 
+ptrs_all_genes <- ptrs_all_genes %>% data.frame() %>% mutate(FID = rownames(ptrs_all_genes), .before = "model_0") %>% select(c(FID, "model_34")) %>% filter(!(FID  %in% all_rats$ID)) %>% rename(PTRS_all_genes= model_34)
+
+all_ptrs <- full_join(ptrs_all_genes, ptrs_best_genes, by = "FID")
+prs_pheno <- full_join(prs, bodylength, by = "FID")
+
+all_tibbles <- full_join(all_ptrs, prs_pheno, by = "FID")
+```
+

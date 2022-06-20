@@ -102,7 +102,7 @@ Mgmt <- read_tsv("/Users/natashasanthanam/Downloads/model_perf_Mgmt.txt")
 Polr3k <- read_tsv("/Users/natashasanthanam/Downloads/model_perf_Polr3k.txt")
 Dhfr <- read_tsv("/Users/natashasanthanam/Downloads/model_perf_Dhfr.txt")
 
-g1 <- ggplot(Mgmt, aes(pred, obs)) + geom_point() + annotate("text", x = 0.4, y = 2.5, label = "Mgmt", size = 10, fontface =2) + annotate("text", x = 0.53, y = 2, label = "r2 =  0.724", size = 8) + theme(aspect.ratio=1) + xlab("Predicted expression") + ylab("Observed Expression")
+g1 <- ggplot(Mgmt, aes(pred, obs)) + geom_point() + annotate("text", x = 0.4, y = 2.5, label = "Mgmt", size = 10, fontface ="bold.italic") + annotate("text", x = 0.53, y = 2, label = "R2 =  0.724", size = 8) + theme(aspect.ratio=1) + xlab("Predicted expression") + ylab("Observed Expression")
 
 g2 <- ggplot(Polr3k, aes(pred, obs)) + geom_smooth(size = 1) + geom_point() + ggtitle("Polr3k") + annotate("text", x = -1.8, y = 2, label = "r2 =  0.796", size = 3)  + theme(aspect.ratio=1)
 
@@ -130,7 +130,7 @@ python3 $METAXCAN/Predict.py \
 --throw
 ```
 
-DHFR r2= 0.5054578
+RPS26 r2= 0.7352744
 ```{r check correlation between predicted and observed expression, eval=FALSE}
 pred_expr <- fread("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/comp_to_GTEx/1000G_NAcc2__predict.txt")
 obs_expr <- fread("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/comp_to_GTEx/GD462.GeneQuantRPKM.50FN.samplename.resk10.txt.gz")
@@ -138,18 +138,23 @@ obs_expr <- fread("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/comp_to_GTEx/G
 obs_expr <- obs_expr %>% select(-c(Chr, Gene_Symbol, Coord)) %>% pivot_longer(!TargetID, names_to = "FID", values_to = "count") %>% pivot_wider(names_from = TargetID, values_from = count)
 colnames(obs_expr)[2:ncol(obs_expr)] = sapply(strsplit(colnames(obs_expr)[2:ncol(obs_expr)], "\\."), `[`, 1)
 
-DHFR_pred <- as.data.frame(pred_expr[, c("FID", "ENSG00000228716.6")])
-DHFR_obs <- as.data.frame(obs_expr[,  c("FID", "ENSG00000228716")]) 
+RPS26_pred <- as.data.frame(pred_expr[, c("FID", "ENSG00000197728.9")])
+RPS26_obs <- as.data.frame(obs_expr[,  c("FID", "ENSG00000197728")]) 
 
-DHFR_pred <- DHFR_pred[match(DHFR_obs$FID, DHFR_pred$FID),]
-DHFR_obs <- DHFR_obs[match(DHFR_pred$FID, DHFR_obs$FID ), ]
+RPS26_pred <- RPS26_pred[match(RPS26_obs$FID, RPS26_pred$FID),]
+RPS26_obs <- RPS26_obs[match(RPS26_pred$FID, RPS26_obs$FID ), ]
 
 
-DHFR <- inner_join(DHFR_pred, DHFR_obs, by = "FID")
-colnames(DHFR) = c("FID", "pred", "obs")
+RPS26 <- inner_join(RPS26_pred, RPS26_obs, by = "FID")
+colnames(RPS26) = c("FID", "pred", "obs")
 
+RPS26_GTEx <- read_tsv("/Users/natashasanthanam/Downloads/GTEx_RPS26.txt", col_names = TRUE)
 DHFR_GTEx <- read_tsv("/Users/natashasanthanam/Downloads/GTEx_DHFR_results.txt", col_names = TRUE)
+
+
 g4 <- ggplot(DHFR_GTEx, aes(pred, obs)) + geom_point() + annotate("text", x = -0.45, y = 55, label = "DHFR", size = 10, fontface =2) + annotate("text", x = -0.4, y = 51, label = "r2 =  0.506", size = 8) + theme(aspect.ratio=1) + xlab("Predicted expression") + ylab("Observed Expression")
+
+g5 <- ggplot(RPS26_GTEx, aes(pred, obs)) + geom_point() + annotate("text", x = -0.5, y = 385, label = "RPS26", size = 10, fontface ="bold.italic") + annotate("text", x = -0.45, y = 355, label = "R2 =  0.735", size = 8) + theme(aspect.ratio=1) + xlab("Predicted expression") + ylab("Observed Expression")
 ```
 
 # Correlation of predicted R2 between tissues in GTEx
@@ -239,7 +244,7 @@ colnames(lg_df) = c("ensembl_id", "rat_ensembl_id", "genename", "rat_r2", "human
 lg_df %>% mutate(human_shuffled_h2 = sample(human_h2, nrow(lg_df), replace=F)) %>% ggplot(aes(rat_h2, human_h2)) + geom_smooth(col = "darkgreen") + geom_smooth(aes(rat_h2, human_shuffled_h2),col="dark gray")+theme_bw()+ xlab("Rat Heritability") + ylab("Human Heritability")
 
 # Plot R2 between rats and Humans with line for null 
-lg_df %>% mutate(human_shuffled_r2 = sample(human_r2, nrow(lg_df), replace=F)) %>% ggplot(aes(rat_r2, human_r2)) + geom_smooth(col = "midnightblue") + xlab("Rat Predictability") + ylab("Human Predictability") + annotate("text", x = 0.1, y = 0.2, label = "r =  0.061", size = 8) 
+lg_df %>% mutate(human_shuffled_r2 = sample(human_r2, nrow(lg_df), replace=F)) %>% ggplot(aes(rat_r2, human_r2)) + geom_smooth(col = "midnightblue") + xlab("Rat Predictability") + ylab("Human Predictability") + annotate("text", x = 0.1, y = 0.2, label = "R =  0.061", size = 8) 
 ```
 
 Compare Predictability Between Tissues
@@ -288,8 +293,6 @@ Calculate R2 across GTEx Tissues
 model.dir <- "/gpfs/data/im-lab/nas40t2/Data/PredictDB/GTEx_v8/models_v1/eqtl/elastic_net_models/"
 
 filelist <- c("en_Brain_Amygdala.db", "en_Brain_Cerebellum.db", "en_Brain_Nucleus_accumbens_basal_ganglia.db", "en_Brain_Spinal_cord_cervical_c-1.db", "en_Brain_Substantia_nigra.db")
-
-w
 ```
 
 

@@ -1,0 +1,160 @@
+---
+title: "04.PhenomeXcan_MultiXcan.Rmd"
+author: "Natasha Santhanam"
+date: "2/14/2022"
+output: html_document
+---
+
+---
+title: "PhenomeXcan Query"
+author: "Natasha Santhanam"
+date: "10/12/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(data.table)
+library(RSQLite)
+"%&%" = function(a,b) paste(a,b,sep="")
+data.dir <- "/Users/natashasanthanam/Github/rat-genomic-analysis/"
+```
+
+```{r}
+suppressPackageStartupMessages(source(data.dir %&% "helpers.R", chdir = TRUE))
+phenomexcan_con <- get_db()
+dbListTables(phenomexcan_con)
+```
+
+## query PhenomeXcan association with top phenotypes for list of genes
+
+
+```{r query PhenomeXcan for top genes associated with Obesity }
+input = list()
+input$pheno = c("Obesity")
+input$limit = 30000
+obesity_genes <-  suppressMessages(get_results_from_data_db(input))
+```
+
+
+```{r query PhenomeXcan for top genes associated with Body fat percentage }
+input = list()
+input$pheno = c("Body fat percentage")
+input$limit = 30000
+body_fat_genes <- suppressMessages(get_results_from_data_db(input))
+```
+
+```{r query PhenomeXcan for top genes associated with BMI }
+input = list()
+input$pheno = c("Body mass index (BMI) (21001_raw)")
+input$limit = 30000
+BMI_genes <- suppressMessages(get_results_from_data_db(input))
+```
+
+
+```{r query PhenomeXcan for top genes associated with Fasting Glucose }
+input = list()
+input$pheno = c("Fasting Glucose")
+input$limit = 30000
+glucose_genes <- suppressMessages(get_results_from_data_db(input))
+```
+
+
+```{r query PhenomeXcan for top genes associated with Height }
+input = list()
+input$pheno = c("Height")
+input$limit = 30000
+height_genes <- suppressMessages(get_results_from_data_db(input))
+```
+
+
+Generate a table of all human MultiXcan results
+```{r create phenotype matrix in Humans}
+#matrix - humans (rows are genes and columns are traits (fat, BMI, Obesity))
+listphenos <- list(BMI_genes, body_fat_genes, obesity_genes, glucose_genes, height_genes)
+pheno_Multi_humans <- data_frame(gene_name = as.character())
+
+for(l in listphenos) {
+  trait <- l$phenotype[1]
+  tempo <- l %>% dplyr::select(c(gene_name, pvalue))
+  colnames(tempo)[2] = paste("pvalue", trait, sep="_")
+  pheno_Multi_humans <- full_join(pheno_Multi_humans, tempo, by = "gene_name")
+}
+
+
+human_genes <- as.data.frame(pheno_Multi_humans$gene_name)
+
+#pheno_humans <- as.matrix(pheno_humans %>% dplyr::select(-c(gene_name)))
+```
+
+
+```{r find orthologs in rats}
+human = useEnsembl(biomart='ensembl', dataset="hsapiens_gene_ensembl", mirror = "uswest")
+#human = useMart("ensembl", dataset = "hsapiens_gene_ensembl", mirror = "uswest")
+attributes <- listAttributes(human)
+
+attributes = c("ensembl_gene_id", "external_gene_name", "rnorvegicus_homolog_ensembl_gene", "rnorvegicus_homolog_associated_gene_name")
+orth.rats = getBM(attributes, filters="with_rnorvegicus_homolog",values=TRUE, mart = human, uniqueRows=TRUE)
+
+human_genes <- human_genes %>% dplyr::rename(external_gene_name = `pheno_Multi_humans$gene_name`)
+human_genes <- inner_join(human_genes, orth.rats, by = "external_gene_name") %>% dplyr::select(c(external_gene_name, rnorvegicus_homolog_associated_gene_name))
+```
+
+Generate a table of all rat MultiXcan results
+```{r make rat multiXcan matrix, eval=FALSE}
+filelist <- list.files("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/MultiXcan/results", pattern = "assoc.txt",full.names = TRUE)
+
+pheno_Multi_rat<- data_frame(gene = as.character())
+for(fila in filelist) {
+  trait <- substr(fila, 66, str_length(fila)-18)
+  tempo <- fread(fila) %>% select(c(gene, pvalue))
+  colnames(tempo)[2] = paste("pvalue", trait, sep=".")
+  pheno_Multi_rat<- full_join(pheno_Multi_rat, tempo, by = "gene")
+}
+
+#pheno_Multi_rat <- read_tsv("/Users/natashasanthanam/Downloads/rat_metabolic_MultiXcan_pval_assoc.txt", col_names = TRUE)
+
+pheno_Multi_rat <- pheno_Multi_rat %>% mutate(gene_name = orth.rats[match(pheno_Multi_rat$gene, orth.rats$rnorvegicus_homolog_ensembl_gene),2]$external_gene_name)
+```
+
+
+# Enrichment Analysis
+```{r enrichment for fasting glucose}
+devtools::source_gist("38431b74c6c0bf90c12f")
+devtools::source_gist("1e9053c8f35c30396429350a08f33ea7")
+```
+
+```{r enrichment for BMI and Height using prediXcan}
+full_df <- full_df %>% mutate(gene_name = orth.rats[match(full_df$gene, orth.rats$rnorvegicus_homolog_ensembl_gene), 2]$external_gene_name)
+
+
+qqunif(BMI_genes$pvalue, col= "maroon1" )
+colnames(pheno_Multi_humans)[2] <- "pvalue_BMI"
+BMI_genes_rats <- full_df %>% filter(metabolic_trait == "Body Mass Index (BMI) with tail")  %>% filter(pvalue <= 0.05) %>% .[["gene_name"]]
+qqpoints(BMI_genes %>% filter(gene_name %in% BMI_genes_rats) %>% .[["pvalue"]],pch='+', col = "dodgerblue") 
+
+
+qqunif(height_genes$pvalue, col = "maroon1")
+height_genes_rats <- full_df %>% filter(metabolic_trait == "Body length including tail") %>% filter(pvalue <= 0.05) %>% .[["gene_name"]]
+qqpoints(height_genes %>% filter(gene_name %in% height_genes_rats) %>% .[["pvalue"]],pch='+', col="dodgerblue")
+```
+
+```{r enrichment with MultiXcan}
+qqunif(BMI_genes$pvalue, col= "maroon1") 
+BMI_genes_rats <- pheno_Multi_rat  %>% filter(pvalue.bmi_bodylength_wo_tail <= 0.05) %>% .[["gene_name"]] %>% na.omit()
+qqpoints(BMI_genes %>% filter(gene_name %in% BMI_genes_rats) %>% .[["pvalue"]],pch='+', col="dodgerblue") 
+
+qqunif(height_genes$pvalue, col= "maroon1")
+height_genes_rats <- pheno_Multi_rat %>% filter(pvalue.bodylength_w_tail <= 0.05) %>% .[["gene_name"]] %>% na.omit()
+qqpoints(height_genes %>% filter(gene_name %in% height_genes_rats) %>% .[["pvalue"]],pch='+', col="dodgerblue")
+```
+
+```{r calculate Enrichment value with MW test}
+all_bmi_genes <- BMI_genes %>% mutate(in_rats = ifelse(BMI_genes$gene_name %in% BMI_genes_rats, 1, 0))
+
+all_height_genes <- height_genes %>% mutate(in_rats = ifelse(height_genes$gene_name %in% height_genes_rats, 1, 0))
+  
+wilcox.test(pvalue ~ in_rats, data=all_bmi_genes) 
+wilcox.test(pvalue ~ in_rats, data=all_height_genes) 
+```
+
