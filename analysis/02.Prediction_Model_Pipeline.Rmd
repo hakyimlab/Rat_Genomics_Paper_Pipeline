@@ -309,15 +309,15 @@ saveRDS(gene_annotation, "/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/rat-gen
 
 ```{bash}
 # Creating the meta data file for each tissue 
-python scripts/create_meta_data.py --geno "genotypes/genotype.txt" --expr "expression_files/Ac_expression_transformed.tsv" --alpha 1 --snpset "1KG" --rsid_label 1 --window 1000000 --out_prefix "Results/allMetaData/Ac"
+python scripts/create_meta_data.py --geno "genotypes/genotype.txt" --expr "expression_files/Ac_expression_transformed.tsv" --alpha 0.5 --snpset "1KG" --rsid_label 1 --window 1000000 --out_prefix "Results/allMetaData/Ac"
 
-python scripts/create_meta_data.py --geno "genotypes/genotype.txt" --expr "expression_files/Il_expression_transformed.tsv" --alpha 1 --snpset "1KG" --rsid_label 1 --window 1000000 --out_prefix "Results/allMetaData/Il"
+python scripts/create_meta_data.py --geno "genotypes/genotype.txt" --expr "expression_files/Il_expression_transformed.tsv" --alpha 0.5 --snpset "1KG" --rsid_label 1 --window 1000000 --out_prefix "Results/allMetaData/Il"
 
-python scripts/create_meta_data.py --geno "genotypes/genotype.txt" --expr "expression_files/Lh_expression_transformed.tsv" --alpha 1 --snpset "1KG" --rsid_label 1 --window 1000000 --out_prefix "Results/allMetaData/Lh"
+python scripts/create_meta_data.py --geno "genotypes/genotype.txt" --expr "expression_files/Lh_expression_transformed.tsv" --alpha 0.5 --snpset "1KG" --rsid_label 1 --window 1000000 --out_prefix "Results/allMetaData/Lh"
 
-python scripts/create_meta_data.py --geno "genotypes/genotype.txt" --expr "expression_files/Pl_expression_transformed.tsv" --alpha 1 --snpset "1KG" --rsid_label 1 --window 1000000 --out_prefix "Results/allMetaData/Pl"
+python scripts/create_meta_data.py --geno "genotypes/genotype.txt" --expr "expression_files/Pl_expression_transformed.tsv" --alpha 0.5 --snpset "1KG" --rsid_label 1 --window 1000000 --out_prefix "Results/allMetaData/Pl"
 
-python scripts/create_meta_data.py --geno "genotypes/genotype.txt" --expr "expression_files/Vo_expression_transformed.tsv" --alpha 1 --snpset "1KG" --rsid_label 1 --window 1000000 --out_prefix "Results/allMetaData/Vo"
+python scripts/create_meta_data.py --geno "genotypes/genotype.txt" --expr "expression_files/Vo_expression_transformed.tsv" --alpha 0.5 --snpset "1KG" --rsid_label 1 --window 1000000 --out_prefix "Results/allMetaData/Vo"
 ```
 
 

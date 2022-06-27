@@ -143,6 +143,27 @@ ggplot(bodylength_w_tail_cor, aes(n_genes_in_model, cor)) + geom_errorbar(aes(ym
 ggplot(bmi_w_tail_cor, aes(n_genes_in_model, cor)) + geom_errorbar(aes(ymin = conf.int.min, ymax = conf.int.max ), width=0.2,  color="gray48") + ylim(c(0 ,0.1)) + geom_point(position="jitter") +geom_line() +  xlab("Number of genes in each model") + ylab("Correlation Coefficient (r)") 
 ```
 
+Violin plot
+
+```{r read in PTRS results}
+ptrs_hum <- read_excel("/Users/natashasanthanam/Downloads/13059_2021_2591_MOESM5_ESM.xlsx")
+ptrs_hum <- ptrs_hum[7:nrow(ptrs_hum),]
+colnames(ptrs_hum) = c("trait", "population", "PTRS_MESA_EUR", "PTRS_MESA_AFR", "PTRS_MESA_ALL")
+
+ptrs_hum_height <- ptrs_hum %>% filter(trait == "height")
+ptrs_hum_height <- ptrs_hum_height %>% pivot_longer(c("PTRS_MESA_EUR", "PTRS_MESA_AFR", "PTRS_MESA_ALL"), names_to = "PTRS") %>% select(-c(trait))
+```
+
+
+```{r violin plot}
+ggplot(bodylength_w_tail_cor, aes(x=n_genes_in_model, y=cor)) + 
+  geom_violin()
+
+ggplot(bmi_w_tail_cor, aes(x=n_genes_in_model, y=cor)) + 
+  geom_violin()
+```
+
+
 # Create and Plot Negative Control
 ```{r create negative control df}
 fasting_glucose <- pheno %>% dplyr::select(c(rat_rfid, fasting_glucose)) %>% na.omit()
