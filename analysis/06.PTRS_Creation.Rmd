@@ -18,13 +18,13 @@ devtools::source_gist("1e9053c8f35c30396429350a08f33ea7")
 ```
 
 ```{r file dir, eval=FALSE}
-data.dir <- "/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/"
+data.dir <- "/Users/sabrinami/Github/Rat_Genomics_Paper_Pipeline/data/"
 orth.rats <- read_tsv(data.dir %&% "expression/ortholog_genes_rats_humans.tsv", col_names = TRUE)
 ```
 
 # Individual PTRS creation
 
-Read in Weights and Expression and do some data wrangling
+Read in Weights and Expression and do some data wrangling.
 ```{r read in weights and expression, eval=FALSE}
 weights <- read_tsv(data.dir %&% "PTRS_weights/weight_files/elastic_net_alpha_0.1_British.export_model/weights.height.tsv.gz")
 #weights <- read_tsv(data.dir %&% "PTRS_weights/weight_files/elastic_net_alpha_0.1_British.export_model/weights.bmi.tsv.gz")
