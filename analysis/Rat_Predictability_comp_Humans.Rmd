@@ -220,7 +220,7 @@ cor.test(all_h2$rat_herit, all_h2$h2)
 
 Compare Predictability (R2) between Humans and Rats
 ```{r comp r2 between humans and rats}
-fila <- "/Users/natashasanthanam/Box/imlab-data/data-Github/rat-genomic-analysis/sql/Tyson_original_models/Ac_output_db.db"
+fila <- "/Users/natashasanthanam/Box/imlab-data/data-Github/rat-genomic-analysis/sql/Ac_output_db.db"
 sqlite.driver <- dbDriver("SQLite")
 conn <- dbConnect(RSQLite::SQLite(), fila)
 rat_r2 <- dbGetQuery(conn, 'select * from extra')
@@ -249,7 +249,7 @@ lg_df %>% mutate(human_shuffled_r2 = sample(human_r2, nrow(lg_df), replace=F)) %
 
 Compare Predictability Between Tissues
 ```{r compare predictability between rat tissue, eval=FALSE}
-box.dir <- "/Users/natashasanthanam/Box/imlab-data/data-Github/rat-genomic-analysis/sql/Natasha_re-generate_models/"
+box.dir <- "/Users/natashasanthanam/Box/imlab-data/data-Github/rat-genomic-analysis/sql/"
 filelist <- c("Il_output_db.db", "Lh_output_db.db", "Ac_output_db.db", "Vo_output_db.db", "Pl_output_db.db")
 tis.list <- c("Infralimbic Cortex", "Lateral Habenula", "Nucleus accumbens", "Orbitofrontal Cortex", "Prelimibic Cortex")
 
@@ -318,3 +318,18 @@ ggplot(data = d2, aes(x = var1, y = var2, fill = r)) +
   theme(panel.grid = element_blank()) + ylab("") + xlab("") + theme(axis.text = element_text(size = 15), axis.text.x = element_text(angle = 90, hjust = 1)) + theme(aspect.ratio=1)   
 
 ```
+
+Check Number of SNPs used in Prediction in Rats vs Humans
+
+```{r check n.snps}
+summary(rat_r2$n.snps)
+
+#human NAcc models
+filename <- "/Users/natashasanthanam/Downloads/en_Brain_Nucleus_accumbens_basal_ganglia.db"
+sqlite.driver <- dbDriver("SQLite")
+conn <- dbConnect(RSQLite::SQLite(), filename)
+human_r2 <- dbGetQuery(conn, 'select * from extra') 
+
+summary(human_r2$n.snps.in.model)
+```
+

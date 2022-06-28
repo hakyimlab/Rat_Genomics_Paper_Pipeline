@@ -1,0 +1,148 @@
+---
+title: "10.PTRS_simulation_weights"
+author: "Natasha Santhanam"
+date: "6/26/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(data.table)
+library(RSQLite)
+library(ggpubr)
+"%&%" = function(a,b) paste(a,b,sep="")
+dir <- "/Users/natashasanthanam/Github/rat-genomic-analysis/data/"
+devtools::source_gist("ee5f67abddd0b761ee24410ea71c41aa")
+devtools::source_gist("38431b74c6c0bf90c12f")
+devtools::source_gist("1e9053c8f35c30396429350a08f33ea7")
+```
+
+## Check Simulation of Different Weights for PTRS correlation with observed trait
+
+Read in files
+
+```{r read in weights, phenotype and predicted expression}
+weights <-  read_tsv("/Users/natashasanthanam/Downloads/weights.height.annot.tsv")  
+weights <- read_tsv("/Users/natashasanthanam/Downloads/weights.bmi.annot.tsv")
+pred_expr <- fread("/Users/natashasanthanam/Box/imlab-data/data-Github/web-data/2022-06-23-improving-figure-for-rat-ptrs/rat_metabolic_Ac_best__predict.txt") %>% select(-c(FID))
+
+pred_expr <- pred_expr %>% select(c(IID, intersect(colnames(pred_expr), orth.rats$rnorvegicus_homolog_ensembl_gene) ))
+
+
+#change name to human ensembl id in humans
+colnames(pred_expr)[2:ncol(pred_expr)] <- orth.rats[match(colnames(pred_expr)[2:ncol(pred_expr)], orth.rats$rnorvegicus_homolog_ensembl_gene), 1] %>% .[["ensembl_gene_id"]]
+```
+
+
+# First create data frame of weights for 100 variations
+We will use model 35 for the simulation for height
+```{r}
+perm_weights_height <- matrix(0, nrow = nrow(weights), ncol = 100)
+
+for(i in 1:ncol(perm_weights_height)) {
+  j = sample(c(-1,1),nrow(weights),replace=T)
+  df = weights[,38]*j
+  perm_weights_height[,i] = df$model_36
+}
+
+perm_weights_height <- cbind(weights$model_36, perm_weights_height)
+perm_weights_height <- as.data.frame(perm_weights_height) 
+perm_weights_height <- perm_weights_height %>% mutate(gene_name = weights$gene_name, .before = colnames(perm_weights_height)[1])
+colnames(perm_weights_height)[1:2] = c("gene_name", "obs_weights")
+```
+
+
+We will also use model 17 for BMI - since it produced the largest correlation
+
+```{r}
+perm_weights_bmi <- matrix(0, nrow = nrow(weights), ncol = 100)
+
+for(i in 1:ncol(perm_weights_bmi)) {
+  j = sample(c(-1,1),nrow(weights),replace=T)
+  df = weights[,19]*j
+  perm_weights_bmi[,i] = df$model_17
+}
+
+perm_weights_bmi <- cbind(weights$model_17, perm_weights_bmi)
+perm_weights_bmi <- as.data.frame(perm_weights_bmi) 
+perm_weights_bmi <- perm_weights_bmi %>% mutate(gene_name = weights$gene_name, .before = colnames(perm_weights_bmi)[1])
+colnames(perm_weights_bmi)[1:2] = c("gene_name", "obs_weights")
+```
+
+
+# Create predicted trait for sign-permuted weights
+
+```{r create predicted trait}
+pred_expr <- as.data.frame(pred_expr)
+pred_height <- fn_generate_trait(pred_expr, perm_weights_height)
+pred_bmi <- fn_generate_trait(pred_expr, perm_weights_bmi)
+```
+
+# Compare all values across different weight sign permuations to actual BMI and Height
+
+```{r}
+pred_height <- readRDS("/Users/natashasanthanam/Downloads/PTRS_simulation_random_sign_weights_height.RDS")
+pred_bmi <- readRDS("/Users/natashasanthanam/Downloads/PTRS_simulation_random_sign_weights_bmi.RDS")
+all_rats <- read_tsv(dir %&% "all_names.txt", col_names = TRUE)
+
+pheno <- read_csv(dir %&% "processed_obesity_rat_Palmer_phenotypes.csv")
+pheno <- pheno %>% filter(!(rat_rfid  %in% all_rats$ID))
+```
+# Check correlation between observed bodylength and permuted sign weights
+Bodylength with tail
+
+```{r}
+#Bodylength wit Tail vs predicted Height from Human PTRS weights
+bodylength_w_tail <- pheno %>% dplyr::select(c(rat_rfid, bodylength_w_tail)) %>% na.omit()
+tempo <- pred_height[na.omit(match(bodylength_w_tail$rat_rfid, rownames(pred_height))), ]
+
+bodylength_w_tail_cor_perm <- data.frame(cor = numeric(), pvalue = numeric(), perm = character(), conf.int.min = numeric(), conf.int.max = numeric())
+for(i in 1:ncol(tempo)){
+  bodylength_w_tail_cor_perm[i,1] <- cor.test(bodylength_w_tail$bodylength_w_tail, tempo[,i])$estimate
+  bodylength_w_tail_cor_perm[i,2] <- cor.test(bodylength_w_tail$bodylength_w_tail, tempo[,i])$p.value
+  bodylength_w_tail_cor_perm[i,3] <- ifelse(i ==1, "true_weight", paste("perm", i-1, sep = "_"))
+  bodylength_w_tail_cor_perm[i,4] <- cor.test(bodylength_w_tail$bodylength_w_tail, tempo[,i])$conf.int[1]
+  bodylength_w_tail_cor_perm[i,5] <- cor.test(bodylength_w_tail$bodylength_w_tail, tempo[,i])$conf.int[2]
+}
+
+```
+
+
+BMI
+```{r}
+bmi_with_tail <- pheno %>% dplyr::select(c(rat_rfid, bmi_bodylength_w_tail)) %>% na.omit()
+tempo <- pred_bmi[na.omit(match(bmi_with_tail$rat_rfid, rownames(pred_bmi))), ]
+
+bmi_w_tail_cor <- data.frame(cor = numeric(), pvalue = numeric(), perm = character(), conf.int.min = numeric(), conf.int.max = numeric())
+for(i in 1:ncol(tempo)){
+  bmi_w_tail_cor[i,1] <- cor.test(bmi_with_tail$bmi_bodylength_w_tail, tempo[,i])$estimate
+  bmi_w_tail_cor[i,2] <- cor.test(bmi_with_tail$bmi_bodylength_w_tail, tempo[,i])$p.value
+  bmi_w_tail_cor[i,3] <-  ifelse(i ==1, "true_weight", paste("perm", i-1, sep = "_"))
+  bmi_w_tail_cor[i,4] <- cor.test(bmi_with_tail$bmi_bodylength_w_tail, tempo[,i])$conf.int[1]
+  bmi_w_tail_cor[i,5] <- cor.test(bmi_with_tail$bmi_bodylength_w_tail, tempo[,i])$conf.int[2]
+}
+```
+
+
+# Compare performance of permuted weights with true weight
+Height
+```{r graph permuted weights vs observed for bodylength}
+bodylength_w_tail_cor_perm <- bodylength_w_tail_cor_perm %>% mutate(iteration = seq(1,101,1))
+
+ggplot(bodylength_w_tail_cor_perm, aes(iteration, cor))  + geom_errorbar(aes(ymin = conf.int.min, ymax = conf.int.max ), width=0.2,  color="gray48") + geom_point(col = ifelse(bodylength_w_tail_cor_perm$perm == "true_weight", "dodgerblue2", "black")) + ylab("Correlation Coefficient (r)") + xlab("Permutation with Random Sign Weights for Height")
+
+bodylength_w_tail_cor_perm <- bodylength_w_tail_cor_perm %>% mutate(weight_type = ifelse(perm == "true_weight", "true weight", "permutation"))
+ggplot(bodylength_w_tail_cor_perm, aes(x=cor, color=weight_type)) +
+  geom_histogram(fill = "white") + xlab("Correlation coefficient for bodylength") 
+```
+
+BMI
+```{r compare permuted vs observed version for BMI}
+bmi_w_tail_cor <- bmi_w_tail_cor %>% mutate(iteration = seq(1,101,1))
+ggplot(bmi_w_tail_cor, aes(iteration, cor))  + geom_errorbar(aes(ymin = conf.int.min, ymax = conf.int.max ), width=0.2,  color="gray48") + geom_point(col = ifelse(bodylength_w_tail_cor_perm$perm == "true_weight", "dodgerblue2", "black")) + ylab("Correlation Coefficient (r)") + xlab("Permutation with Random Sign Weights for BMI")
+
+bmi_w_tail_cor <- bmi_w_tail_cor %>% mutate(weight_type = ifelse(perm == "true_weight", "true weight", "permutation"))
+ggplot(bmi_w_tail_cor, aes(x=cor, color=weight_type)) +
+  geom_histogram(fill = "white") + xlab("Correlation coefficient for BMI") 
+```
+
