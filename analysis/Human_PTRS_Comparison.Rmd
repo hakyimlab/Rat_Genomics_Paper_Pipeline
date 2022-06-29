@@ -22,14 +22,15 @@ library(RSQLite)
 library(glmnet)
 library(ggpubr)
 "%&%" = function(a,b) paste(a,b,sep="")
-data.dir <- "/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/"
+data.dir <- "/Users/sabrinami/Github/Rat_Genomics_Paper_Pipeline/data/"
 devtools::source_gist("ee5f67abddd0b761ee24410ea71c41aa")
 ```
 ##  Human PTRS Comparison
 
+The Personal Genome Project is dedicated to creating a public resource of individual data from informed volunteers. PGP [genetic data](https://uchicago.box.com/s/7b9k6ilrx3fg6fq2l00tnej1edmk91r5) is publicly available, and we have processed trait information in an [sqlite database](https://uchicago.box.com/s/351lx8irgiouks3tnl8uoqh4bw8wpt6n). In Yanyu Liang's development of PTRS, she generated PTRS weights using elastic net.
 We want to use PGP data to test Yanyu's PTRS weights and compare to observed height. We previously generated predicted expression in Summary_PTRS_PGS.Rmd
 
-# Caclualte Predicted Height in PGP using Individual PTRS Weights
+# Caculalte Predicted Height in PGP using Individual PTRS Weights
 
 Read in Weights and Expression 
 ```{r read in weights and expression, eval=FALSE}
@@ -44,20 +45,18 @@ pred_height <- fn_generate_trait(pred_expr, weights)
 ```
 
 # Compare Performance to Observed Height in Personal Genomes
-Get phenotype data
+
+First, we load PGP phenotype data, selecting for height.
+
 ```{r get pheno data, eval=FALSE}
-filename <- "/gpfs/data/im-lab/nas40t2/Data/Personal-Genomes/repgp-data.sqlite3"
+filename <- "/Users/sabrinami/Box/imlab-data/data-Github/web-data/2021-04-21-personal-genomes-project-data/repgp-data.sqlite3"
 sqlite.driver <- dbDriver("SQLite")
 conn <- dbConnect(RSQLite::SQLite(), filename)
 dbListTables(conn)
 
 users <- dbGetQuery(conn, 'select * from users')
 dbDisconnect(conn)
-```
 
-
-
-```{r read in pheno, eval=FALSE}
 pheno <- users  %>% select(c(sample, height))%>% na.omit()
 n_genes = as.matrix(apply(weights[,2:ncol(weights)], 2, function(x) sum(x != 0 )))
 ```
@@ -78,10 +77,12 @@ for(i in 1:ncol(tempo)){
 }
 ```
 
+The resulting height_df computes 
+
 # Plot Performance
 
 ```{r read in corr matrix}
-height_df <- readRDS("/Users/natashasanthanam/Github/rat-genomic-analysis/data/corr_height_indiv_PTRS.RDS")
+height_df <- readRDS("/Users/sabrinami/Github/rat-genomic-analysis/data/corr_height_indiv_PTRS.RDS")
 
 p1 = ggplot(height_df, aes(n_genes_in_model, estimate)) + geom_errorbar(aes(ymin = conf.int.min, ymax = conf.int.max ), width=0.2,  color="gray") + geom_point(color = "purple", position="jitter") + geom_line(color = "purple")   + xlab("Number of genes in each model") + ylab("Correlation Coefficient (r)") + ggtitle("Performance of PTRS for Height in Personal Genomes") + theme_bw()
 p1

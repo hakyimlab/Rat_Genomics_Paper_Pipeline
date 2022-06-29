@@ -1,5 +1,5 @@
 ---
-title: "4.PTRS_Creation"
+title: "06.PTRS_Creation"
 author: "Natasha Santhanam"
 date: "2/7/2022"
 output: html_document
@@ -17,8 +17,9 @@ devtools::source_gist("38431b74c6c0bf90c12f")
 devtools::source_gist("1e9053c8f35c30396429350a08f33ea7")
 ```
 
+The `orth.rats` file contains gives a dictionary between human genes and the corresponding gene in rats. 
 ```{r file dir, eval=FALSE}
-data.dir <- "/Users/sabrinami/Github/Rat_Genomics_Paper_Pipeline/data/"
+data.dir <- "/Users/sabrinami/Box/imlab-data/data-Github/Rat_Genomics_Paper_Pipeline/data/"
 orth.rats <- read_tsv(data.dir %&% "expression/ortholog_genes_rats_humans.tsv", col_names = TRUE)
 ```
 
@@ -31,7 +32,8 @@ weights <- read_tsv(data.dir %&% "PTRS_weights/weight_files/elastic_net_alpha_0.
 weights$gene_id <- sapply(strsplit(weights$gene_id, "\\."), `[`, 1)
 
 # Here we use predicted expression not predicted and make sure to use human ensembl id gene name
-pred_expr <- read_tsv(data.dir %&% "prediXcan/metabolic_traits/rat_metabolic_Ac_best__predict.txt") %>% select(-c(FID))
+base.dir <- "/Users/sabrinami/Box/imlab-data/data-Github/Rat_Genomics_Paper_Pipeline/Results/"
+pred_expr <- read_tsv(base.dir %&% "prediXcan/metabolic_traits/rat_metabolic_Ac_best__predict.txt") %>% select(-c(FID))
 
 #filter only for genes that have a human ortholog
 pred_expr <- pred_expr %>% select(c(IID, intersect(colnames(pred_expr), orth.rats$rnorvegicus_homolog_ensembl_gene) ))

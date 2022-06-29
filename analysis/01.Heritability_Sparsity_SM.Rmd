@@ -284,7 +284,7 @@ for(i in 1:length(ensidlist_Vo)){
 
 # Calculate Sparsity Estimates for all 5 tissues
 
-The following code uses `bim_bam` files generated through Palmer lab data, steps [here](convert_genotypes_old.Rmd):
+The following code uses `bim_bam` files generated through Palmer lab data, steps [here](convert_genotypes_old.Rmd). The code
 
 Ac
 ```{r dir for Ac, eval=FALSE}

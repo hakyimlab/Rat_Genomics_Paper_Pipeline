@@ -7,13 +7,12 @@ output: html_document
 
 ```{r setup, eval=FALSE}
 library(tidyverse)
-library(devtools)
 library(broom)
 library(data.table)
 library(RSQLite)
-library(data.table)
 library(qqman)
 library(ggrepel)
+library(devtools)
 devtools::source_gist("0ddc9c0ea03245bb30efbe3e899897be")
 "%&%" = function(a,b) paste(a,b,sep="")
 args = commandArgs(trailingOnly=TRUE)
@@ -23,39 +22,43 @@ geno.dir <- "/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/Box_files/rat_genoty
 ## Run PrediXcan with Metabolic Phenotype Data
 
 # Create model with right column names for PrediXcan (do for all 5 tissues)
+
+Sabrina's note: I have no idea what is going on here, I don't know where bimbam file came from. I tried running this script from genotype files generated from previous steps in the pipeline, but it seems like a different file was inputed below. We may be able to ignore this step for now, since we already have PrediXcan formatted genotype from an earlier step in the pipeline.
 ```{r create txt genotypes, eval=FALSE}
 filelist <- list.files(geno.dir, pattern = ".bimbam")
 #ids for rats are in the phenotype file under rat_rfid
 
-for(fila in filelist) {
-  tempo <- fread(geno.dir %&% fila)
+for(file in filelist) {
+  tempo <- fread(geno.dir %&% file)
   tempo <- tempo %>% mutate(chr =  numextract(sapply(strsplit(tempo$V1, ":"), `[`, 1)), .before = V1) %>% mutate(pos = numextract(sapply(strsplit(tempo$V1, ":"), `[`, 2)), .before = V2) %>% mutate(maf = 0, .before = V4)
-  write_tsv(tempo, geno.dir %&% substr(fila, 1, nchar(fila) - 7) %&% ".txt", col_names = FALSE)
+  write_tsv(tempo, geno.dir %&% substr(file, 1, nchar(file) - 7) %&% ".txt", col_names = FALSE)
 }
 ```
 
 
 ```{r change colnames of Ac prediction model, eval=FALSE}
-data.dir <- "/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/"
-filename <-  data.dir %&% "models/EN_models/" %&% tis %&% "_output_db.db"
-  sqlite.driver <- dbDriver("SQLite")
-  conn <- dbConnect(RSQLite::SQLite(), filename)
-  extra <- dbGetQuery(conn, 'select * from extra')
-  weights <- dbGetQuery(conn, 'select * from weights')
+tis = "Ac"
+data.dir <- "/Users/sabrinami/Github/Rat_Genomics_Paper_Pipeline/Results/"
+filename <-  data.dir %&% "sql/" %&% tis %&% "_output_db.db"
+sqlite.driver <- dbDriver("SQLite")
+conn <- dbConnect(RSQLite::SQLite(), filename)
+extra <- dbGetQuery(conn, 'select * from extra')
+weights <- dbGetQuery(conn, 'select * from weights')
+dbDisconnect(conn)
 extra <- extra %>% select(c(gene, genename, n.snps, R2, pval)) %>% mutate(pred.perf.qval = NA) 
 colnames(extra) <- c("gene", "genename", "n.snps.in.model", "pred.perf.R2", "pred.perf.pval", "pred.perf.qval")
-cor_df <- read_tsv(data.dir %&% "rat-genomic-analysis/Results/all_results_" %&% tis, col_names = TRUE) %>% select(c(gene, cor))
+cor_df <- read_tsv(data.dir %&% "all_results_" %&% tis, col_names = TRUE) %>% select(c(gene, cvm))
 
 extra <- extra %>% filter(pred.perf.R2 > 0.01)
 
 extra <- full_join(extra, cor_df, by = "gene")
-extra <- extra %>% filter(cor >= 0 | is.na(cor)) %>% select(-c(cor)) %>% filter(!is.na(pred.perf.R2))
+extra <- extra %>% filter(cvm >= 0 | is.na(cvm)) %>% select(-c(cvm)) %>% filter(!is.na(pred.perf.R2))
 weights <- weights %>% filter(gene %in% extra$gene)
 ```
 
 
 ```{r create database connection, eval=FALSE}
-model_db = MODEL %&% tis %&% "_best_prediXcan_db.db"
+model_db = data.dir %&% "sql/" %&% tis %&% "_best_prediXcan_db.db"
 conn <- dbConnect(RSQLite::SQLite(), model_db)
 dbWriteTable(conn, "weights", weights)
 dbWriteTable(conn, "extra", extra)
@@ -67,6 +70,7 @@ dbGetQuery(conn, 'SELECT * FROM extra') %>% head
 dbDisconnect(conn)
 ```
 
+Note: I don't know how these files were generated.
 ```{r filter samples for no overlap of rats, eval=FALSE}
 samples <- read_tsv(GENO %&% "samples_Rat_metab_phenos_file", col_names = FALSE)
 all_rats <- read_tsv(PHENO %&% "all_names.txt", col_names = TRUE)
@@ -78,22 +82,24 @@ write_tsv(samples, GENO %&% "samples_Rat_metab_abrv_phenos_file", col_names = FA
 # Do for all 5 tissues 
 ```{bash run prediXcan, eval = FALSE}
 #run prediXcan
-conda activate /gpfs/data/im-lab/nas40t2/bin/envs/tensorqtl/ 
-export METAXCAN=/gpfs/data/im-lab/nas40t2/natasha/GTEX_Analysis/MetaXcan/software
-export GENO=/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/Box_files/rat_genotypes_LD_pruned_0.95
-export MODEL=/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/models
+conda activate imlabtools
+METAXCAN=/Users/sabrinami/Github/MetaXcan/software
+GENO=/Users/sabrinami/Box/imlab-data/data-Github/Rat_Genomics_Paper_Pipeline/data/rat_genotypes_LD_pruned_0.95
+MODEL=/Users/sabrinami/Box/imlab-data/data-Github/Rat_Genomics_Paper_Pipeline/Results/sql
+OUTPUT=/Users/sabrinami/Box/imlab-data/data-Github/Rat_Genomics_Paper_Pipeline/Results/PrediXcan/metabolic_traits/
 
 python $METAXCAN/Predict.py \
 --model_db_path $MODEL/Ac_best_prediXcan_db.db \
---text_genotypes  \
+--text_genotypes \
  $GENO/chr*.round2_impute2_3473.txt  \
 --on_the_fly_mapping METADATA "{}_{}_{}_{}" \
 --text_sample_ids $GENO/samples_Rat_metab_phenos_file \
---prediction_output rat_metabolic_Ac_best__predict.txt  \
---prediction_summary_output rat_metabolic_Ac_best__summary.txt \
+--prediction_output $OUTPUT/rat_metabolic_Ac_best__predict.txt  \
+--prediction_summary_output $OUTPUT/rat_metabolic_Ac_best__summary.txt \
 --throw
 ```
 
+Note: Stop here, we have all the results needed to continue to PTRS analysis.
 ```{r }
 pred_expr <- read_tsv("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/prediXcan/metabolic_traits/rat_metabolic_" %&% tis %&% "_best__predict.txt", col_names = TRUE)
 

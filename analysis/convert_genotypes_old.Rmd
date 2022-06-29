@@ -25,11 +25,12 @@ wd =  "/Users/sabrinami/Github/Rat_Genomics_Paper_Pipeline/output/"
 We loaded several data tables into memory. `geno` contains genotype data, with columns of rat IDs and each row containing dosage for a single snp. These snps are listed in `phyMap`, with their chromosome, position, reference, and alternative alleles. In this next step, we subset genotype data to the rats with gene expression data for each tissue.
 
 ```{r subset genotypes, eval=FALSE}
-geno_Ac = geno[,match(colnames(gexAc), colnames(geno))]
-geno_Il = geno[,match(colnames(gexIl), colnames(geno))]
-geno_Lh = geno[,match(colnames(gexLh), colnames(geno))]
-geno_Pl = geno[,match(colnames(gexPl), colnames(geno))]
-geno_Vo = geno[,match(colnames(gexVo), colnames(geno))]
+# We take all except the first column of geno, which is NA (because geno is a matrix). The the result is a list of all individual ids
+geno_Ac = geno[,match(colnames(gexAc), colnames(geno))[-1]]
+geno_Il = geno[,match(colnames(gexIl), colnames(geno))[-1]]
+geno_Lh = geno[,match(colnames(gexLh), colnames(geno))[-1]]
+geno_Pl = geno[,match(colnames(gexPl), colnames(geno))[-1]]
+geno_Vo = geno[,match(colnames(gexVo), colnames(geno))[-1]]
 ```
 
 Adding information from the snp annotation file `phyMap`, we generate a genotype file for each tissue.
