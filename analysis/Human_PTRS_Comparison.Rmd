@@ -20,9 +20,9 @@ library(qqman)
 library(arrow)
 library(RSQLite)
 library(glmnet)
-library(ggpubr)
+# library(ggpubr)
 "%&%" = function(a,b) paste(a,b,sep="")
-data.dir <- "/Users/sabrinami/Github/Rat_Genomics_Paper_Pipeline/data/"
+data.dir <- "/Users/sabrinami/Box/imlab-data/data-Github/Rat_Genomics_Paper_Pipeline/data/"
 devtools::source_gist("ee5f67abddd0b761ee24410ea71c41aa")
 ```
 ##  Human PTRS Comparison
@@ -39,6 +39,7 @@ weights <- read_tsv(data.dir %&% "PTRS_weights/weight_files/elastic_net_alpha_0.
 # Here we use predicted expression not predicted and make sure to use human ensembl id gene name
 pred_expr <- read_tsv(data.dir %&% "PTRS_weights/PGP/PGP_Whole_Blood__predict.txt") %>% select(-c(FID))
 ```
+
 
 ```{r generate pred height, eval=FALSE}
 pred_height <- fn_generate_trait(pred_expr, weights)
@@ -82,7 +83,7 @@ The resulting height_df computes
 # Plot Performance
 
 ```{r read in corr matrix}
-height_df <- readRDS("/Users/sabrinami/Github/rat-genomic-analysis/data/corr_height_indiv_PTRS.RDS")
+# height_df <- readRDS("/Users/sabrinami/Github/rat-genomic-analysis/data/corr_height_indiv_PTRS.RDS")
 
 p1 = ggplot(height_df, aes(n_genes_in_model, estimate)) + geom_errorbar(aes(ymin = conf.int.min, ymax = conf.int.max ), width=0.2,  color="gray") + geom_point(color = "purple", position="jitter") + geom_line(color = "purple")   + xlab("Number of genes in each model") + ylab("Correlation Coefficient (r)") + ggtitle("Performance of PTRS for Height in Personal Genomes") + theme_bw()
 p1
