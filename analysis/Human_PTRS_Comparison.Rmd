@@ -12,60 +12,124 @@ date: "2/23/2022"
 output: html_document
 ---
 
-````{r setup, include=FALSE}
+# Generate Predicted Traits for Rats
+
+## Setup
+
+```{r setup}
 library(tidyverse)
 library(data.table)
-library(readxl)
-library(qqman)
-library(arrow)
 library(RSQLite)
 library(glmnet)
-# library(ggpubr)
 "%&%" = function(a,b) paste(a,b,sep="")
-data.dir <- "/Users/sabrinami/Box/imlab-data/data-Github/Rat_Genomics_Paper_Pipeline/data/"
 devtools::source_gist("ee5f67abddd0b761ee24410ea71c41aa")
+devtools::source_gist("38431b74c6c0bf90c12f")
+devtools::source_gist("1e9053c8f35c30396429350a08f33ea7")
 ```
-##  Human PTRS Comparison
 
-The Personal Genome Project is dedicated to creating a public resource of individual data from informed volunteers. PGP [genetic data](https://uchicago.box.com/s/7b9k6ilrx3fg6fq2l00tnej1edmk91r5) is publicly available, and we have processed trait information in an [sqlite database](https://uchicago.box.com/s/351lx8irgiouks3tnl8uoqh4bw8wpt6n). In Yanyu Liang's development of PTRS, she generated PTRS weights using elastic net.
+Yanyu's PTRS weights estimate the effect of genes on a given trait, in this case we pick height and BMI. 
+
+```{r inputs}
+traits <- c("height", "bmi")
+# folder with PrediXcan results
+results.dir <- "/Users/sabrinami/Box/imlab-data/data-Github/Rat_Genomics_Paper_Pipeline/Results/PrediXcan/metabolic_traits/"
+# folder with PTRS weights, predicted traits will output here
+data.dir <- "/Users/sabrinami/Box/imlab-data/data-Github/Rat_Genomics_Paper_Pipeline/data/"
+
+```
+
+## Data Wrangling
+
+The `orth.rats` file contains gives a dictionary between human genes and the corresponding gene in rats. 
+```{r file dir}
+orth.rats <- read_tsv(data.dir %&% "expression/ortholog_genes_rats_humans.tsv", col_names = TRUE)
+```
+
+We first replace rat genes in the predicted expression results with their corresponding human genes, so that it could be compatible with PTRS weights.
+
+```{r add human ensembl id}
+
+pred_expr <- read_tsv(results.dir %&% "rat_metabolic_Ac_best__predict.txt") %>% select(-c(FID))
+
+#filter only for genes that have a human ortholog
+pred_expr <- pred_expr %>% select(c(IID, intersect(colnames(pred_expr), orth.rats$rnorvegicus_homolog_ensembl_gene) ))
+
+#change name to human ensembl id in humans
+colnames(pred_expr)[2:ncol(pred_expr)] <- orth.rats[match(colnames(pred_expr)[2:ncol(pred_expr)], orth.rats$rnorvegicus_homolog_ensembl_gene), 1] %>% .[["ensembl_gene_id"]]
+  
+```
+
+Then we reformat the PTRS weight files, removing the Ensembl version from gene names.
+
+```{r format weights, eval=FALSE}
+fn_weights = function(trait)
+{
+  weights <- read_tsv(data.dir %&% "PTRS_weights/weight_files/elastic_net_alpha_0.1_British.export_model/weights." %&% trait %&% ".tsv.gz")
+  weights$gene_id <- sapply(strsplit(weights$gene_id, "\\."), `[`, 1)
+  rownames(weights) <- weights$gene_id
+  weights <- weights %>% rename(gene_name = gene_id)
+  return(weights)
+}
+
+```
+
+We converted the predicted expression for rat genes to corresponding human gene names, matching the PTRS gene names. This lets us combine PTRS weights, trained from human transcriptomic data, with predicted transciptome of the rats using the fn_generate_trait function below. The output is the predicted height for individual rats. 
+
+In some ways, we can interpret generate_trait as the opposite of PrediXcan. Both start from the predicted transcriptome of a group of individuals, PrediXcan works backwards from values of their observed trait to compute association between genes and the trait, whereas fn_generate_trait assumes those associations to predict the trait for each individual. PTRS is particularly insightful in this case, because of its portability across different population groups. We hope this extends across species, motivating our final goal of comparing the performance of PTRS in humans and rats.
+
+```{r generate predicted trait, eval=FALSE}
+for(trait in traits) {
+  weights <- fn_weights(trait)
+  pred_trait <- fn_generate_trait(pred_expr, weights)
+  saveRDS(pred_trait, data.dir %&% "rat_pred_" %&% trait %&% "_w_Human_best_PTRS.RDS")
+}
+
+```
+
+# Evaluating Rat PTRS Performance
+
+```{r read PTRS weights}
+weights <- read_tsv(data.dir %&% "PTRS_weights/weight_files/elastic_net_alpha_0.1_British.export_model/weights.height.tsv.gz") %>% rename(gene_name = gene_id)
+```
+
+##  Human PTRS Results
+
+The Personal Genome Project is a public resource of individual data from informed volunteers. PGP [genetic data](https://uchicago.box.com/s/7b9k6ilrx3fg6fq2l00tnej1edmk91r5) is publicly available, and we have processed trait information in an [sqlite database](https://uchicago.box.com/s/351lx8irgiouks3tnl8uoqh4bw8wpt6n). In Yanyu Liang's development of PTRS, she generated PTRS weights using elastic net.
 We want to use PGP data to test Yanyu's PTRS weights and compare to observed height. We previously generated predicted expression in Summary_PTRS_PGS.Rmd
 
-# Caculalte Predicted Height in PGP using Individual PTRS Weights
+## Calculate Predicted Height in PGP using Individual PTRS Weights
 
-Read in Weights and Expression 
-```{r read in weights and expression, eval=FALSE}
-weights <- read_tsv(data.dir %&% "PTRS_weights/weight_files/elastic_net_alpha_0.1_British.export_model/weights.height.tsv.gz") %>% rename(gene_name = gene_id)
-
-# Here we use predicted expression not predicted and make sure to use human ensembl id gene name
+```{r read expression}
 pred_expr <- read_tsv(data.dir %&% "PTRS_weights/PGP/PGP_Whole_Blood__predict.txt") %>% select(-c(FID))
 ```
 
-
+We repeat the same method from before for predicting traits, but this time predicting height and BMI for PGP individuals.
 ```{r generate pred height, eval=FALSE}
-pred_height <- fn_generate_trait(pred_expr, weights)
+pred_height_humans <- fn_generate_trait(pred_expr, weights)
 ```
 
-# Compare Performance to Observed Height in Personal Genomes
+## Compare Performance to Observed Height in Personal Genomes
 
-First, we load PGP phenotype data, selecting for height.
+First, we load PGP phenotype data, stored in an sqlite database.
 
-```{r get pheno data, eval=FALSE}
-filename <- "/Users/sabrinami/Box/imlab-data/data-Github/web-data/2021-04-21-personal-genomes-project-data/repgp-data.sqlite3"
+```{r get pheno data}
+db <- "~/Box/imlab-data/data-Github/web-data/2021-04-21-personal-genomes-project-data/repgp-data.sqlite3"
 sqlite.driver <- dbDriver("SQLite")
-conn <- dbConnect(RSQLite::SQLite(), filename)
+conn <- dbConnect(RSQLite::SQLite(), db)
 dbListTables(conn)
 
 users <- dbGetQuery(conn, 'select * from users')
 dbDisconnect(conn)
 
-pheno <- users  %>% select(c(sample, height))%>% na.omit()
+pheno <- users  %>% select(c(sample, height)) %>% na.omit()
 n_genes = as.matrix(apply(weights[,2:ncol(weights)], 2, function(x) sum(x != 0 )))
 ```
 
 
-```{r check correlation for height, eval=FALSE}
-pheno <- pheno[na.omit(match(rownames(pred_height), pheno$sample)),]
-tempo <- pred_height[na.omit(match(pheno$sample, rownames(pred_height))), ]
+```{r check correlation for height,eval = FALSE}
+pheno <- pheno[na.omit(match(rownames(pred_height_humans), pheno$sample)),]
+
+tempo <- pred_height_humans[na.omit(match(pheno$sample, rownames(pred_height_humans))), ]
 
 height_df <- data.frame(estimate = numeric(), pvalue = numeric(), model = character(), n_genes_in_model = numeric(), conf.int.min = numeric(), conf.int.max = numeric())
 for(i in 1:ncol(tempo)){
@@ -78,13 +142,11 @@ for(i in 1:ncol(tempo)){
 }
 ```
 
-The resulting height_df computes 
 
 # Plot Performance
 
 ```{r read in corr matrix}
-# height_df <- readRDS("/Users/sabrinami/Github/rat-genomic-analysis/data/corr_height_indiv_PTRS.RDS")
-
+height_df <- readRDS(data.dir %&% "corr_height_indiv_PTRS.RDS")
 p1 = ggplot(height_df, aes(n_genes_in_model, estimate)) + geom_errorbar(aes(ymin = conf.int.min, ymax = conf.int.max ), width=0.2,  color="gray") + geom_point(color = "purple", position="jitter") + geom_line(color = "purple")   + xlab("Number of genes in each model") + ylab("Correlation Coefficient (r)") + ggtitle("Performance of PTRS for Height in Personal Genomes") + theme_bw()
 p1
 ```

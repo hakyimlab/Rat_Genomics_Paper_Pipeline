@@ -30,11 +30,12 @@ Yanyu's PTRS weights estimate the effect of genes on a given trait, in this case
 traits <- c("height", "bmi")
 ```
 
-
-We first replace rat genes in the predicted expression results with their corresponding human genes, so that it could be compatible with PTRS weights.
+```{r}
+base.dir <- "~/Box/imlab-data/data-Github/Rat_Genomics_Paper_Pipeline/Results/"
+```
+We first replace rat genes in the predicted expression results with their corresponding human genes, so that it could be compatible with Yanyu's PTRS weights.
 
 ```{r add human ensembl id}
-base.dir <- "/Users/sabrinami/Box/imlab-data/data-Github/Rat_Genomics_Paper_Pipeline/Results/"
 pred_expr <- read_tsv(base.dir %&% "prediXcan/metabolic_traits/rat_metabolic_Ac_best__predict.txt") %>% select(-c(FID))
 
 #filter only for genes that have a human ortholog
