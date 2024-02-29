@@ -96,7 +96,7 @@ ggplot(prsice_perf, aes(-log10(Threshold), -log10(P))) + geom_point()
 ```
 Check Correlation between observed bodylength and PRS from PRSice
 
-```{r read in weights and expression for Framingham, eval=FALSE}
+```{r read in weights and expression for G1000, eval=FALSE}
 prs <- fread(dir %&% "rat_metabolic_PRSice.best")
 
 all_rats <- read_tsv(dir %&% "all_names.txt", col_names = TRUE)

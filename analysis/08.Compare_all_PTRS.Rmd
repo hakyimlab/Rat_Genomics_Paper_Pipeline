@@ -108,7 +108,7 @@ for(i in 1:ncol(tempo_clump)) {
 
 
 # Naive PTRS for Rats
-Already have weight files for Naive PTRS from Framingham Whole blood models - so just need to multiply by predicted expression in rats
+Already have weight files for Naive PTRS from G1000 Whole blood models - so just need to multiply by predicted expression in rats
 
 ```{r generate pred height with naive SPTRS, eval=FALSE}
 filelist <- list.files(out.dir %&% "naive_PTRS/", pattern = ".tsv", full.names = TRUE)

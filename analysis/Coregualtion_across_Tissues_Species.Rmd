@@ -137,11 +137,11 @@ for(fila in filelist) {
 
 Generate Coregulation in Humans (GTEx)
 
-First generate predicted expression in Framingham using GTEx models
+First generate predicted expression in G1000 using GTEx models
 ```{bash}
 conda activate imlabtools
 export METAXCAN=/gpfs/data/im-lab/nas40t2/natasha/GTEX_Analysis/MetaXcan/software
-export GENO=/gpfs/data/im-lab/nas40t2/Data/dbGaP/Transcriptome/Framingham/imputed_hrc1.1
+export GENO=/gpfs/data/im-lab/nas40t2/Data/dbGaP/Transcriptome/G1000/imputed_hrc1.1
 export MODEL=/gpfs/data/im-lab/nas40t2/Data/PredictDB/GTEx_v8/models_v1/eqtl/ctimp
 export RESULTS=/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/PTRS_weights/PGP
 export DATA=/gpfs/data/im-lab/nas40t2/natasha/GTEX_Analysis/predixcan
@@ -155,8 +155,8 @@ python3 $METAXCAN/Predict.py \
 --vcf_mode genotyped \
 --liftover $DATA/hg19ToHg38.over.chain.gz  \
 --on_the_fly_mapping METADATA "chr{}_{}_{}_{}_b38" \
---prediction_output $RESULTS/Framingham__$TISSUE.predict.txt \
---prediction_summary_output $RESULTS/Framingham__$TISSUE.summary.txt \
+--prediction_output $RESULTS/G1000__$TISSUE.predict.txt \
+--prediction_summary_output $RESULTS/G1000__$TISSUE.summary.txt \
 --verbosity 9 \
 --throw
 
@@ -183,7 +183,7 @@ gtf <- fread("/gpfs/data/im-lab/nas40t2/natasha/GTEX_Analysis/annotations_gencod
 
  for(i in 1:20) {
   tempo <- gtf %>% filter(chromosome == paste("chr", i, sep="")) %>% select(c(gene_id))
-  expr <- as.data.frame( fread("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/prediXcan/GREx_comp/Framingham_less_mem__Brain_Cerebellum.predict.txt")) %>% select(-c(FID, IID)) 
+  expr <- as.data.frame( fread("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/prediXcan/GREx_comp/G1000_less_mem__Brain_Cerebellum.predict.txt")) %>% select(-c(FID, IID)) 
  colnames(expr) = sapply(strsplit(colnames(expr), "\\."), `[`, 1)
     expr <- expr[, intersect(tempo$gene_id, colnames(expr))]
    res2<-rcorr(as.matrix(expr[,]))
@@ -192,7 +192,7 @@ saveRDS(d2, dir %&% "prediXcan/GREx_comp/cor_GTEx_genes_per_chr/GTEx_chr" %&% i 
  }
 
 #Can also calculate correlation between genes in GTEx for all genes
-expr <- as.data.frame( fread("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/prediXcan/GREx_comp/Framingham_less_mem__Brain_Cerebellum.predict.txt")) %>% select(-c(FID, IID)) 
+expr <- as.data.frame( fread("/gpfs/data/im-lab/nas40t2/natasha/rat_genomics/prediXcan/GREx_comp/G1000_less_mem__Brain_Cerebellum.predict.txt")) %>% select(-c(FID, IID)) 
  colnames(expr) = sapply(strsplit(colnames(expr), "\\."), `[`, 1)
  res2<-rcorr(as.matrix(expr[,]))
   d2 <- flattenCorrMatrix(res2$r, res2$P)
